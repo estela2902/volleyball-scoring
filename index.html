@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acta de Calificación - Juegos Deportivos del Principado de Asturias</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-logos">
+                <div class="logo-left">DEPORTE ASTURIANU</div>
+                <div class="logo-right">juegos deportivos<br>PRINCIPADO DE ASTURIAS</div>
+            </div>
+            <h1>ACTA DE CALIFICACIÓN / JUEGOS DEPORTIVOS DEL PRINCIPADO DE ASTURIAS</h1>
+        </header>
+
+        <!-- Vista de Administración -->
+        <div id="adminView" class="view">
+            <div class="admin-header">
+                <h2>Panel de Administración</h2>
+                <button id="showMatchFormBtn" class="btn-primary">+ Crear Nuevo Partido</button>
+            </div>
+
+            <div id="matchFormSection" class="hidden">
+                <h3>Crear Nuevo Partido</h3>
+                <form id="createMatchForm">
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label>Modalidad Deportiva:</label>
+                            <input type="text" id="modalidad" value="Voleibol" readonly>
+                        </div>
+                        
+                        <div class="form-field">
+                            <label>Categoría: *</label>
+                            <select id="categoria" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="Cadete">Cadete</option>
+                                <option value="Infantil">Infantil</option>
+                                <option value="Alevin">Alevín</option>
+                                <option value="Benjamin">Benjamín</option>
+                                <option value="Minibenjamin">Minibenjamín</option>
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label>Sexo: *</label>
+                            <select id="sexo" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="Masculino">Masculino</option>
+                                <option value="Femenino">Femenino</option>
+                                <option value="Mixto">Mixto</option>
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label>Grupo: *</label>
+                            <select id="grupo" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="Unico">Único</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="E">E</option>
+                                <option value="F">F</option>
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label>Fecha del Partido: *</label>
+                            <input type="date" id="fechaPartido" required>
+                        </div>
+
+                        <div class="form-field">
+                            <label>Hora del Partido: *</label>
+                            <input type="time" id="horaPartido" required>
+                        </div>
+
+                        <div class="form-field">
+                            <label>Lugar de Celebración: *</label>
+                            <input type="text" id="lugar" placeholder="Ej: Polideportivo Municipal" required>
+                        </div>
+
+                        <div class="form-field">
+                            <label>Equipo Local: *</label>
+                            <input type="text" id="equipoLocal" placeholder="Nombre del equipo local" required>
+                        </div>
+
+                        <div class="form-field">
+                            <label>Equipo Visitante: *</label>
+                            <input type="text" id="equipoVisitante" placeholder="Nombre del equipo visitante" required>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-submit">Crear Partido</button>
+                        <button type="button" id="cancelMatchBtn" class="btn-secondary">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="matchesListSection">
+                <h3>Partidos Registrados</h3>
+                <div id="matchesList" class="matches-list"></div>
+            </div>
+        </div>
+
+        <!-- Vista de Selección de Partido (para equipos) -->
+        <div id="selectMatchView" class="view hidden">
+            <h2>Identificar Partido</h2>
+            <p class="info-text">Selecciona tu partido para completar el acta de calificación</p>
+            
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Categoría:</label>
+                    <select id="filterCategoria">
+                        <option value="">Todas</option>
+                        <option value="Cadete">Cadete</option>
+                        <option value="Infantil">Infantil</option>
+                        <option value="Alevin">Alevín</option>
+                        <option value="Benjamin">Benjamín</option>
+                        <option value="Minibenjamin">Minibenjamín</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label>Sexo:</label>
+                    <select id="filterSexo">
+                        <option value="">Todos</option>
+                        <option value="Masculino">Masculino</option>
+                        <option value="Femenino">Femenino</option>
+                        <option value="Mixto">Mixto</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label>Grupo:</label>
+                    <select id="filterGrupo">
+                        <option value="">Todos</option>
+                        <option value="Unico">Único</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                        <option value="F">F</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label>Fecha:</label>
+                    <input type="date" id="filterFecha">
+                </div>
+            </div>
+
+            <div id="availableMatchesList" class="matches-list"></div>
+        </div>
+
+        <!-- Vista de Formulario de Evaluación -->
+        <div id="evaluationView" class="view hidden">
+            <div id="matchInfo" class="match-info"></div>
+
+            <form id="scoringForm">
+            <div class="evaluation-header">
+                <h2>MI EQUIPO: <span id="miEquipo"></span></h2>
+                <h3>Evaluando a: <span id="equipoContrario"></span></h3>
+            </div>
+
+            <div class="resultado-section">
+                <h3>Resultado del Partido</h3>
+                <div class="resultado-inputs">
+                    <div class="resultado-field">
+                        <label id="labelMiEquipo"></label>
+                        <input type="number" id="setsGanados" min="0" max="3" value="0" required>
+                    </div>
+                    <span class="vs">-</span>
+                    <div class="resultado-field">
+                        <label id="labelEquipoContrario"></label>
+                        <input type="number" id="setsContrario" min="0" max="3" value="0" required>
+                    </div>
+                </div>
+            </div>
+
+            <div class="team-section">
+
+                    <div class="scoring-section">
+                        <h3>1. ENTRENADOR/A CONTRARIO/A</h3>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="entrenador" value="0" required>
+                                <span class="score-badge red">0</span>
+                                Conducta antideportiva (protestas constantes, faltas de respeto, incitación a la tensión).
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="entrenador" value="1">
+                                <span class="score-badge orange">1</span>
+                                Actitud negativa frecuente, poco colaborativa.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="entrenador" value="2">
+                                <span class="score-badge yellow">2</span>
+                                Actitud correcta en general, aunque con momentos de tensión.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="entrenador" value="3">
+                                <span class="score-badge light-green">3</span>
+                                Actitud positiva, respeta las decisiones arbitrales y fomenta el juego limpio.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="entrenador" value="4">
+                                <span class="score-badge green">4</span>
+                                Ejemplo de deportividad: colaboración, respeto total, facilita el desarrollo del partido.
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="scoring-section">
+                        <h3>2. DEPORTISTAS EQUIPO CONTRARIO</h3>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="deportistas" value="0" required>
+                                <span class="score-badge red">0</span>
+                                Conducta violenta o antideportiva reiterada.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="deportistas" value="1">
+                                <span class="score-badge orange">1</span>
+                                Incidentes frecuentes (provocaciones, malas actitudes, protestas al árbitro/a).
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="deportistas" value="2">
+                                <span class="score-badge yellow">2</span>
+                                Comportamiento aceptable con algunas acciones negativas aisladas.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="deportistas" value="3">
+                                <span class="score-badge light-green">3</span>
+                                Buen comportamiento, respeto entre rivales, pocas incidencias.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="deportistas" value="4">
+                                <span class="score-badge green">4</span>
+                                Ejemplo de juego limpio: cooperación, respeto total a compañeros/as, rivales y árbitro.
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="scoring-section">
+                        <h3>3. ÁRBITRO/A</h3>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="arbitro" value="0" required>
+                                <span class="score-badge red">0</span>
+                                Parcialidad clara, falta de control del partido.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="arbitro" value="1">
+                                <span class="score-badge orange">1</span>
+                                Errores graves o repetidos, actitud poco dialogante.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="arbitro" value="2">
+                                <span class="score-badge yellow">2</span>
+                                Actuación correcta con errores puntuales.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="arbitro" value="3">
+                                <span class="score-badge light-green">3</span>
+                                Buen arbitraje, comunicación clara, mantiene el control.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="arbitro" value="4">
+                                <span class="score-badge green">4</span>
+                                Excelente: imparcial, firme, dialogante y respetuoso/a.
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="scoring-section">
+                        <h3>4. CONDUCTA DE LA AFICIÓN</h3>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="aficion" value="0" required>
+                                <span class="score-badge red">0</span>
+                                Conducta inaceptable (insultos, agresiones verbales o físicas, violencia).
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="aficion" value="1">
+                                <span class="score-badge orange">1</span>
+                                Comportamiento negativo frecuente (protestas continuas, ambiente hostil).
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="aficion" value="2">
+                                <span class="score-badge yellow">2</span>
+                                Conducta aceptable, aunque con momentos de tensión.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="aficion" value="3">
+                                <span class="score-badge light-green">3</span>
+                                Buena actitud, apoyo mayormente positivo.
+                            </label>
+                        </div>
+                        <div class="scoring-item">
+                            <label>
+                                <input type="radio" name="aficion" value="4">
+                                <span class="score-badge green">4</span>
+                                Ejemplo de deportividad: ánimos constantes, respeto al rival y árbitro/a.
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="total-box">
+                        <label>TOTAL PUNTOS</label>
+                        <div class="total-score" id="totalPuntos">0</div>
+                    </div>
+
+                    <div class="signature-box">
+                        <label>Firma del Responsable del Equipo:</label>
+                        <input type="text" id="firma" placeholder="Nombre del Entrenador/a" required>
+                    </div>
+                </div>
+
+            <div class="deadline-warning">
+                ⚠️ IMPORTANTE: Este formulario debe ser completado antes del <strong>lunes siguiente a las 12:00 horas</strong> tras la finalización del partido.
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-submit">Guardar y Enviar Evaluación</button>
+                <button type="button" class="btn-secondary" id="cancelEvaluationBtn">Cancelar</button>
+            </div>
+        </form>
+        </div>
+
+        <div id="submissionMessage" class="submission-message hidden">
+            ✓ Evaluación enviada correctamente
+        </div>
+
+        <!-- Navegación Principal -->
+        <div id="mainNav" class="main-nav">
+            <button id="btnAdmin" class="nav-btn">Panel de Administración</button>
+            <button id="btnTeam" class="nav-btn">Completar Acta (Equipos)</button>
+            <button id="btnResults" class="nav-btn">Ver Resultados</button>
+        </div>
+
+        <!-- Vista de Resultados -->
+        <div id="resultsView" class="view hidden">
+            <h2>Resultados y Actas Completadas</h2>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Filtrar por Categoría:</label>
+                    <select id="resultsFilterCategoria">
+                        <option value="">Todas</option>
+                        <option value="Cadete">Cadete</option>
+                        <option value="Infantil">Infantil</option>
+                        <option value="Alevin">Alevín</option>
+                        <option value="Benjamin">Benjamín</option>
+                        <option value="Minibenjamin">Minibenjamín</option>
+                    </select>
+                </div>
+            </div>
+            <div id="resultsList" class="results-list"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
