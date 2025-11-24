@@ -1,10 +1,21 @@
 // Sistema de gestión de partidos y evaluaciones
 let currentMatch = null;
 let currentTeam = null;
+let useCloudStorage = false;
 
 // Inicialización
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     showView('adminView');
+    
+    // Inicializar Google Sheets API
+    try {
+        await sheetsService.initGoogleAPI();
+        updateSyncUI();
+    } catch (error) {
+        console.error('Error inicializando Google API:', error);
+        showStatus('⚠️ Modo offline - Sin conexión a Google Sheets', 'warning');
+    }
+    
     loadMatches();
     
     // Event listeners para navegación
@@ -22,6 +33,11 @@ document.addEventListener('DOMContentLoaded', () => {
         showView('resultsView');
         loadResults();
     });
+    
+    // Event listeners para Google Sheets
+    document.getElementById('btnGoogleAuth').addEventListener('click', authenticateGoogle);
+    document.getElementById('btnSync').addEventListener('click', syncWithCloud);
+    document.getElementById('btnSignOut').addEventListener('click', signOutGoogle);
     
     // Event listeners para formularios
     document.getElementById('showMatchFormBtn').addEventListener('click', showMatchForm);
@@ -52,6 +68,87 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('fechaPartido').valueAsDate = new Date();
 });
+
+// ========== FUNCIONES DE GOOGLE SHEETS ==========
+
+async function authenticateGoogle() {
+    try {
+        showStatus('🔄 Conectando con Google...', 'info');
+        await sheetsService.authenticate();
+        useCloudStorage = true;
+        updateSyncUI();
+        showStatus('✓ Conectado con Google Sheets', 'success');
+        
+        // Preguntar si quiere inicializar la hoja
+        if (confirm('¿Es la primera vez que usas esta aplicación? ¿Quieres inicializar las cabeceras de la hoja de Google Sheets?')) {
+            await sheetsService.inicializarHoja();
+            showStatus('✓ Hoja inicializada correctamente', 'success');
+        }
+        
+        // Preguntar si quiere cargar datos desde la nube
+        if (confirm('¿Quieres cargar los datos existentes desde Google Sheets?')) {
+            await loadFromCloud();
+        }
+    } catch (error) {
+        console.error('Error en autenticación:', error);
+        showStatus('❌ Error conectando con Google', 'error');
+    }
+}
+
+async function syncWithCloud() {
+    try {
+        showStatus('🔄 Sincronizando...', 'info');
+        await sheetsService.sincronizarConLocalStorage();
+        showStatus('✓ Sincronización completada', 'success');
+        await loadFromCloud();
+    } catch (error) {
+        console.error('Error en sincronización:', error);
+        showStatus('❌ Error en sincronización', 'error');
+    }
+}
+
+async function loadFromCloud() {
+    try {
+        showStatus('🔄 Cargando datos desde la nube...', 'info');
+        await sheetsService.cargarDesdeLaNube();
+        loadMatches();
+        loadAvailableMatches();
+        loadResults();
+        showStatus('✓ Datos cargados desde la nube', 'success');
+    } catch (error) {
+        console.error('Error cargando desde la nube:', error);
+        showStatus('❌ Error cargando datos', 'error');
+    }
+}
+
+function signOutGoogle() {
+    sheetsService.signOut();
+    useCloudStorage = false;
+    updateSyncUI();
+    showStatus('Sesión cerrada', 'info');
+}
+
+function updateSyncUI() {
+    const isAuth = sheetsService.checkAuth();
+    document.getElementById('btnGoogleAuth').classList.toggle('hidden', isAuth);
+    document.getElementById('btnSync').classList.toggle('hidden', !isAuth);
+    document.getElementById('btnSignOut').classList.toggle('hidden', !isAuth);
+    
+    if (isAuth) {
+        useCloudStorage = true;
+    }
+}
+
+function showStatus(message, type = 'info') {
+    const statusElement = document.getElementById('syncStatus');
+    statusElement.textContent = message;
+    statusElement.className = `sync-status ${type}`;
+    
+    setTimeout(() => {
+        statusElement.textContent = '';
+        statusElement.className = 'sync-status';
+    }, 5000);
+}
 
 function showView(viewId) {
     document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
@@ -93,7 +190,7 @@ function hideMatchForm() {
     document.getElementById('fechaPartido').valueAsDate = new Date();
 }
 
-function createMatch(e) {
+async function createMatch(e) {
     e.preventDefault();
     
     const matchData = {
@@ -112,9 +209,22 @@ function createMatch(e) {
         fechaCreacion: new Date().toISOString()
     };
     
+    // Guardar en localStorage
     const matches = getMatches();
     matches.push(matchData);
     localStorage.setItem('matches', JSON.stringify(matches));
+    
+    // Guardar en Google Sheets si está conectado
+    if (useCloudStorage && sheetsService.checkAuth()) {
+        try {
+            showStatus('📤 Guardando en Google Sheets...', 'info');
+            await sheetsService.guardarPartido(matchData);
+            showStatus('✓ Partido guardado en la nube', 'success');
+        } catch (error) {
+            console.error('Error guardando en la nube:', error);
+            showStatus('⚠️ Guardado localmente (error en la nube)', 'warning');
+        }
+    }
     
     hideMatchForm();
     loadMatches();
@@ -312,7 +422,7 @@ function calculateTotal() {
     return total;
 }
 
-function submitEvaluation(e) {
+async function submitEvaluation(e) {
     e.preventDefault();
     
     const requiredFields = ['entrenador', 'deportistas', 'arbitro', 'aficion'];
@@ -348,9 +458,22 @@ function submitEvaluation(e) {
         fechaEnvio: new Date().toISOString()
     };
     
+    // Guardar en localStorage
     const evaluations = getEvaluations();
     evaluations.push(evaluationData);
     localStorage.setItem('evaluations', JSON.stringify(evaluations));
+    
+    // Guardar en Google Sheets si está conectado
+    if (useCloudStorage && sheetsService.checkAuth()) {
+        try {
+            showStatus('📤 Guardando evaluación en Google Sheets...', 'info');
+            await sheetsService.guardarEvaluacion(evaluationData);
+            showStatus('✓ Evaluación guardada en la nube', 'success');
+        } catch (error) {
+            console.error('Error guardando evaluación en la nube:', error);
+            showStatus('⚠️ Evaluación guardada localmente (error en la nube)', 'warning');
+        }
+    }
     
     document.getElementById('submissionMessage').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -487,11 +610,12 @@ function viewMatchResults(matchId) {
     viewDetailedResults(matchId);
 }
 
-function deleteMatch(matchId) {
+async function deleteMatch(matchId) {
     if (!confirm('¿Estás seguro de eliminar este partido? Esta acción no se puede deshacer.')) {
         return;
     }
     
+    // Eliminar de localStorage
     let matches = getMatches();
     matches = matches.filter(m => m.id !== matchId);
     localStorage.setItem('matches', JSON.stringify(matches));
@@ -499,6 +623,18 @@ function deleteMatch(matchId) {
     let evaluations = getEvaluations();
     evaluations = evaluations.filter(e => e.matchId !== matchId);
     localStorage.setItem('evaluations', JSON.stringify(evaluations));
+    
+    // Eliminar de Google Sheets si está conectado
+    if (useCloudStorage && sheetsService.checkAuth()) {
+        try {
+            showStatus('🗑️ Eliminando de Google Sheets...', 'info');
+            await sheetsService.eliminarPartido(matchId);
+            showStatus('✓ Partido eliminado de la nube', 'success');
+        } catch (error) {
+            console.error('Error eliminando de la nube:', error);
+            showStatus('⚠️ Eliminado localmente (error en la nube)', 'warning');
+        }
+    }
     
     loadMatches();
 }

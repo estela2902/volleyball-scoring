@@ -14,6 +14,14 @@
                 <div class="logo-right">juegos deportivos<br>PRINCIPADO DE ASTURIAS</div>
             </div>
             <h1>ACTA DE CALIFICACIÓN / JUEGOS DEPORTIVOS DEL PRINCIPADO DE ASTURIAS</h1>
+            
+            <!-- Botón de sincronización con Google Sheets -->
+            <div class="sync-controls">
+                <button id="btnGoogleAuth" class="btn-sync">🔐 Conectar con Google</button>
+                <button id="btnSync" class="btn-sync hidden">🔄 Sincronizar</button>
+                <button id="btnSignOut" class="btn-sync hidden">🚪 Cerrar Sesión</button>
+                <span id="syncStatus" class="sync-status"></span>
+            </div>
         </header>
 
         <!-- Vista de Administración -->
@@ -394,6 +402,9 @@
         </div>
     </div>
 
+    <!-- Google API y Scripts -->
+    <script src="config.js"></script>
+    <script src="googleSheetsService.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

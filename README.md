@@ -1,22 +1,24 @@
-# Acta de Calificación - Juegos Deportivos del Principado de Asturias
+# 🏐 Sistema de Actas de Calificación - Voleibol
 
 ## 📋 Descripción
 
-Aplicación web para que los equipos de voleibol completen el acta de calificación después de cada partido. El sistema permite evaluar la conducta deportiva de entrenadores, deportistas, árbitros y afición, calculando automáticamente las puntuaciones totales.
+Aplicación web para gestionar actas de calificación digitales de partidos de voleibol para los Juegos Deportivos del Principado de Asturias. Incluye evaluación de Fair Play y almacenamiento en **Google Sheets** para colaboración en tiempo real entre todos los miembros de la federación.
 
 ## ⚠️ Importante
 
 **PLAZO DE ENTREGA:** Las actas deben ser completadas **antes del lunes siguiente a las 12:00 horas** tras la finalización del partido.
 
-## 🎯 Características
+## ✨ Características Principales
 
-- **Formulario completo** basado en el acta oficial de los Juegos Deportivos del Principado de Asturias
-- **Cálculo automático** de puntuaciones totales
-- **Validación de campos** requeridos
-- **Alerta de plazo** - avisa si se está enviando fuera del plazo límite
-- **Diseño responsive** - funciona en ordenadores, tablets y móviles
-- **Exportación a PDF** - imprime o guarda el acta completada
-- **Almacenamiento local** - guarda las actas enviadas
+- 📝 **Gestión de Partidos**: Crear y administrar partidos desde panel de administración
+- 🏆 **Evaluación Fair Play**: Sistema de puntuación 0-4 puntos por categoría
+- ☁️ **Google Sheets**: Almacenamiento en la nube con Google Workspace
+- 🔄 **Sincronización Automática**: Datos guardados automáticamente en Google Sheets
+- 📱 **Diseño Responsive**: Funciona en ordenadores, tablets y móviles
+- 🔐 **Autenticación Google**: OAuth 2.0 para acceso seguro
+- 💾 **Modo Offline**: Funciona sin conexión usando localStorage
+- ⏰ **Alerta de plazos**: Avisa si se envía fuera del plazo (lunes 12:00h)
+- 📊 **Visualización de Resultados**: Panel para consultar todos los partidos completados
 
 ## 🏐 Secciones de Evaluación
 
@@ -29,86 +31,150 @@ Cada equipo evalúa al equipo contrario en 4 categorías (0-4 puntos cada una):
 
 **Puntuación Total:** 0-16 puntos por equipo
 
-## 🚀 Uso
+## 🚀 Inicio Rápido
 
-1. Abre `index.html` en tu navegador web
-2. Completa los datos del partido (modalidad, categoría, fecha, lugar)
-3. Introduce los nombres de ambos equipos
-4. Registra el resultado del partido
-5. Evalúa cada categoría seleccionando la opción apropiada (0-4 puntos)
-6. Los totales se calculan automáticamente
-7. Firma el acta
-8. Haz clic en "Guardar y Enviar"
+### Instalación y Configuración
 
-## 💾 Almacenamiento
+1. **Configura Google Sheets API**
+   - Lee la guía completa: [`SETUP_GOOGLE_SHEETS.md`](./SETUP_GOOGLE_SHEETS.md)
+   - Crea proyecto en Google Cloud Console
+   - Habilita Google Sheets API
+   - Crea credenciales (API Key + OAuth 2.0)
 
-Las actas se guardan en el almacenamiento local del navegador (localStorage). Para una implementación en producción, se recomienda:
+2. **Configura la aplicación**
+   ```bash
+   cp config.example.js config.js
+   # Edita config.js con tus credenciales
+   ```
 
-- Conectar con un backend (Node.js, PHP, etc.)
-- Guardar en una base de datos
-- Enviar notificaciones por email
-- Implementar autenticación de usuarios
+3. **Inicia servidor local**
+   ```bash
+   # Con Live Server de VS Code (recomendado)
+   # O con Python
+   python -m http.server 5500
+   ```
 
-## 📄 Exportar PDF
+4. **Abre en el navegador**
+   ```
+   http://localhost:5500
+   ```
 
-Haz clic en "Exportar a PDF" para:
-- Imprimir el acta
-- Guardar como PDF (usando "Imprimir a PDF")
-- Crear una copia física del documento
+### Uso Diario
 
-## 🔧 Personalización
+#### Para Administradores
+1. Accede al **Panel de Administración**
+2. Crea nuevos partidos con toda la información
+3. Los partidos se sincronizan automáticamente con Google Sheets
 
-### Modificar colores del badge de puntuación
+#### Para Equipos
+1. Accede a **"Completar Acta (Equipos)"**
+2. Filtra y selecciona tu partido
+3. Identifícate como Local o Visitante
+4. Completa resultado y evaluación Fair Play
+5. Envía antes del **lunes 12:00h**
 
-Edita `styles.css`:
+#### Ver Resultados
+1. Accede a **"Ver Resultados"**
+2. Consulta partidos completados
+3. Filtra por categoría
+4. Ver detalles completos de cada partido
 
-```css
-.score-badge.red { background-color: #e53e3e; }
-.score-badge.orange { background-color: #ed8936; }
-.score-badge.yellow { background-color: #ecc94b; }
-.score-badge.light-green { background-color: #48bb78; }
-.score-badge.green { background-color: #2f855a; }
+## 🔄 Sincronización con Google Sheets
+
+### Conectar
+1. Clic en **"🔐 Conectar con Google"**
+2. Autoriza el acceso
+3. Primera vez: Acepta inicializar cabeceras
+
+### Automático
+- Crear partido → Se guarda en Google Sheets
+- Enviar evaluación → Se guarda en Google Sheets
+- Eliminar partido → Se elimina de Google Sheets
+
+### Manual
+- Clic en **"🔄 Sincronizar"** para forzar sincronización
+
+## 📊 Estructura de Google Sheets
+
+### Hoja "Partidos"
+| ID | Modalidad | Categoría | Sexo | Grupo | Fecha | Hora | Lugar | Equipo Local | Equipo Visitante | Estado | Fecha Creación |
+
+### Hoja "Evaluaciones"
+| ID | Match ID | Equipo | Nombre Equipo | ... | Total Puntos | Firma | Fecha Envío |
+
+### Hoja "Resultados"
+(Opcional - Para reportes personalizados)
+
+## 🏗️ Arquitectura
+
+```
+volleyball-scoring/
+├── index.html                  # Interfaz de usuario
+├── script.js                   # Lógica principal
+├── styles.css                  # Estilos visuales
+├── googleSheetsService.js      # Google Sheets API
+├── config.js                   # Configuración (privado)
+├── config.example.js           # Plantilla
+├── SETUP_GOOGLE_SHEETS.md     # Guía de configuración
+└── GUIA_RAPIDA.md             # Guía de uso rápido
 ```
 
-### Cambiar el plazo de entrega
+## 🛠️ Tecnologías
 
-Modifica la función `checkDeadline()` en `script.js`.
+- **Frontend**: HTML5, CSS3, JavaScript Vanilla
+- **Backend**: Google Sheets API v4
+- **Autenticación**: Google OAuth 2.0
+- **Storage**: localStorage + Google Sheets
 
-## 📱 Responsive Design
+## 📱 Compatibilidad
 
-La aplicación se adapta a diferentes tamaños de pantalla:
-- **Desktop:** Vista de dos columnas (equipos lado a lado)
-- **Tablet/Móvil:** Vista de una columna (equipos apilados)
-
-## 🌐 Compatibilidad
-
-- Chrome, Firefox, Safari, Edge (versiones modernas)
-- Dispositivos móviles iOS y Android
-- Requiere JavaScript habilitado
-
-## 📊 Datos Guardados
-
-Cada acta guardada incluye:
-- Información del partido (modalidad, categoría, fecha, lugar)
-- Datos de ambos equipos (nombre, resultado, puntuaciones, firma)
-- Fecha y hora de envío
-- Puntuaciones totales calculadas
+| Navegador | Soporte |
+|-----------|---------|
+| Chrome/Edge | ✅ Completo |
+| Firefox | ✅ Completo |
+| Safari | ✅ Completo |
+| IE | ❌ No soportado |
 
 ## 🔐 Seguridad
 
-Para uso en producción, implementa:
-- Autenticación de usuarios
-- Validación server-side
-- Protección CSRF
-- Conexión HTTPS
-- Backup de datos
+### Credenciales
+- ✅ `config.js` en `.gitignore`
+- ❌ Nunca subir credenciales a Git público
+- ✅ Limitar orígenes en Google Cloud Console
+
+### Permisos Google Sheets
+- Editor: Solo administradores
+- Lector/Comentador: Otros usuarios
+- Compartir solo con la federación
+
+## 🐛 Solución de Problemas
+
+Ver [`GUIA_RAPIDA.md`](./GUIA_RAPIDA.md) para soluciones detalladas.
+
+**Comunes:**
+- "Access blocked" → Añadir usuario de prueba en OAuth
+- "API key not valid" → Verificar API habilitada
+- No sincroniza → Verificar permisos de la hoja
+
+## 📈 Roadmap
+
+- [ ] Exportar actas a PDF
+- [ ] Dashboard estadísticas Fair Play
+- [ ] Notificaciones automáticas
+- [ ] App móvil (PWA)
+- [ ] Integración con calendario
 
 ## 📞 Soporte
 
-Para modificaciones o preguntas sobre la implementación, consulta el código fuente o contacta con el administrador del sistema.
+Para soporte técnico, consulta:
+1. [`GUIA_RAPIDA.md`](./GUIA_RAPIDA.md)
+2. [`SETUP_GOOGLE_SHEETS.md`](./SETUP_GOOGLE_SHEETS.md)
+3. Consola del navegador (F12)
+4. Google Cloud Console logs
 
 ---
 
-**Versión:** 1.0  
+**Versión:** 2.0 (con Google Sheets)  
 **Fecha:** Noviembre 2025  
-**Organización:** Juegos Deportivos del Principado de Asturias
+**Organización:** Juegos Deportivos del Principado de Asturias  
+**Desarrollado por:** Estela González - ACM TEMU
