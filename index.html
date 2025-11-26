@@ -403,7 +403,8 @@
     </div>
 
     <!-- Google API y Scripts -->
-    <script src="config.js"></script>
+    <!-- Usa config.js en desarrollo local, config.public.js en producción -->
+    <script src="config.js" onerror="this.onerror=null; this.src='config.public.js'"></script>
     <script src="googleSheetsService.js"></script>
     <script src="script.js"></script>
 </body>

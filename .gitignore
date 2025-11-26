@@ -1,5 +1,7 @@
-# Archivo de configuración con credenciales
+# Archivo de configuración con credenciales (desarrollo local)
 config.js
+
+# Nota: config.public.js SÍ se sube a GitHub para producción
 
 # Node modules (si decides usar npm en el futuro)
 node_modules/
