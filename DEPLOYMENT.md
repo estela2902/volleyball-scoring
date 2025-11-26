@@ -12,7 +12,7 @@ git push origin main
 
 ### 2. Activar GitHub Pages
 
-1. Ve a tu repositorio en GitHub: https://github.com/estela2972/volleyball-scoring
+1. Ve a tu repositorio en GitHub: https://github.com/estela-gonzalez_acmtemu/volleyball-scoring
 2. Click en **Settings** (Configuración)
 3. En el menú lateral, click en **Pages**
 4. En **Source** (Origen):
@@ -22,7 +22,7 @@ git push origin main
 6. Espera 2-3 minutos
 
 Tu sitio estará disponible temporalmente en:
-`https://estela2972.github.io/volleyball-scoring/`
+`https://estela-gonzalez-acmtemu.github.io/volleyball-scoring/`
 
 ---
 
@@ -65,7 +65,7 @@ Y este registro **CNAME** para www:
 ```
 Type: CNAME
 Name: www
-Value: estela2972.github.io
+Value: estela-gonzalez-acmtemu.github.io
 ```
 
 #### Opción B: Subdominio (ej: actas.voleyasturias.com)
@@ -74,7 +74,7 @@ Solo necesitas 1 registro **CNAME**:
 ```
 Type: CNAME
 Name: actas
-Value: estela2972.github.io
+Value: estela-gonzalez-acmtemu.github.io
 ```
 
 ### 5. Configurar el dominio en GitHub
