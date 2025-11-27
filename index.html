@@ -403,8 +403,18 @@
     </div>
 
     <!-- Google API y Scripts -->
-    <!-- Usa config.js en desarrollo local, config.public.js en producción -->
-    <script src="config.js" onerror="this.onerror=null; this.src='config.public.js'"></script>
+    <!-- Usa config.public.js en producción, config.js en desarrollo local -->
+    <script>
+        // Cargar config.public.js primero, si falla intenta config.js (desarrollo local)
+        const configScript = document.createElement('script');
+        configScript.src = 'config.public.js';
+        configScript.onerror = function() {
+            const fallbackScript = document.createElement('script');
+            fallbackScript.src = 'config.js';
+            document.head.appendChild(fallbackScript);
+        };
+        document.head.appendChild(configScript);
+    </script>
     <script src="googleSheetsService.js"></script>
     <script src="script.js"></script>
 </body>
