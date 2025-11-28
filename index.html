@@ -402,8 +402,8 @@
         </div>
     </div>
 
-    <!-- Google API y Scripts -->
-    <!-- Cargar scripts en orden: config → googleSheetsService → script -->
+    <!-- Firebase/Firestore y Scripts -->
+    <!-- Cargar scripts en orden: firebaseConfig → firestoreService → script -->
     <script>
         // Cargar configuración primero
         function loadScript(src) {
@@ -419,14 +419,11 @@
         // Cargar scripts en secuencia
         (async function() {
             try {
-                // Intentar cargar config.public.js (producción) o config.js (desarrollo)
-                try {
-                    await loadScript('config.public.js');
-                } catch {
-                    await loadScript('config.js');
-                }
-                // Luego cargar los demás scripts
-                await loadScript('googleSheetsService.js');
+                // Cargar configuración de Firebase
+                await loadScript('firebaseConfig.js');
+                // Cargar servicio de Firestore
+                await loadScript('firestoreService.js');
+                // Cargar script principal
                 await loadScript('script.js');
             } catch (error) {
                 console.error('Error cargando scripts:', error);

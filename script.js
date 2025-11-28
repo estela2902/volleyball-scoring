@@ -7,13 +7,13 @@ let useCloudStorage = false;
 document.addEventListener('DOMContentLoaded', async () => {
     showView('adminView');
     
-    // Inicializar Google Sheets API
+    // Inicializar Firestore
     try {
-        await sheetsService.initGoogleAPI();
+        await firestoreService.initialize();
         updateSyncUI();
     } catch (error) {
-        console.error('Error inicializando Google API:', error);
-        showStatus('⚠️ Modo offline - Sin conexión a Google Sheets', 'warning');
+        console.error('Error inicializando Firestore:', error);
+        showStatus('⚠️ Modo offline - Sin conexión a Firestore', 'warning');
     }
     
     loadMatches();
@@ -34,10 +34,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadResults();
     });
     
-    // Event listeners para Google Sheets
-    document.getElementById('btnGoogleAuth').addEventListener('click', authenticateGoogle);
+    // Event listeners para Firestore
+    document.getElementById('btnGoogleAuth').addEventListener('click', authenticateFirestore);
     document.getElementById('btnSync').addEventListener('click', syncWithCloud);
-    document.getElementById('btnSignOut').addEventListener('click', signOutGoogle);
+    document.getElementById('btnSignOut').addEventListener('click', signOutFirestore);
     
     // Event listeners para formularios
     document.getElementById('showMatchFormBtn').addEventListener('click', showMatchForm);
@@ -69,24 +69,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('fechaPartido').valueAsDate = new Date();
 });
 
-// ========== FUNCIONES DE GOOGLE SHEETS ==========
+// ========== FUNCIONES DE FIRESTORE ==========
 
-async function authenticateGoogle() {
+async function authenticateFirestore() {
     try {
         showStatus('🔄 Conectando con Google...', 'info');
-        await sheetsService.authenticate();
+        await firestoreService.authenticate();
         useCloudStorage = true;
         updateSyncUI();
-        showStatus('✓ Conectado con Google Sheets', 'success');
-        
-        // Preguntar si quiere inicializar la hoja
-        if (confirm('¿Es la primera vez que usas esta aplicación? ¿Quieres inicializar las cabeceras de la hoja de Google Sheets?')) {
-            await sheetsService.inicializarHoja();
-            showStatus('✓ Hoja inicializada correctamente', 'success');
-        }
+        showStatus('✓ Conectado con Firestore', 'success');
         
         // Preguntar si quiere cargar datos desde la nube
-        if (confirm('¿Quieres cargar los datos existentes desde Google Sheets?')) {
+        if (confirm('¿Quieres cargar los datos existentes desde Firestore?')) {
             await loadFromCloud();
         }
     } catch (error) {
@@ -98,7 +92,7 @@ async function authenticateGoogle() {
 async function syncWithCloud() {
     try {
         showStatus('🔄 Sincronizando...', 'info');
-        await sheetsService.sincronizarConLocalStorage();
+        await firestoreService.sincronizarConLocalStorage();
         showStatus('✓ Sincronización completada', 'success');
         await loadFromCloud();
     } catch (error) {
@@ -110,7 +104,7 @@ async function syncWithCloud() {
 async function loadFromCloud() {
     try {
         showStatus('🔄 Cargando datos desde la nube...', 'info');
-        await sheetsService.cargarDesdeLaNube();
+        await firestoreService.cargarDesdeLaNube();
         loadMatches();
         loadAvailableMatches();
         loadResults();
@@ -121,15 +115,15 @@ async function loadFromCloud() {
     }
 }
 
-function signOutGoogle() {
-    sheetsService.signOut();
+async function signOutFirestore() {
+    await firestoreService.signOutUser();
     useCloudStorage = false;
     updateSyncUI();
     showStatus('Sesión cerrada', 'info');
 }
 
 function updateSyncUI() {
-    const isAuth = sheetsService.checkAuth();
+    const isAuth = firestoreService.isAuthenticated();
     document.getElementById('btnGoogleAuth').classList.toggle('hidden', isAuth);
     document.getElementById('btnSync').classList.toggle('hidden', !isAuth);
     document.getElementById('btnSignOut').classList.toggle('hidden', !isAuth);
@@ -214,11 +208,11 @@ async function createMatch(e) {
     matches.push(matchData);
     localStorage.setItem('matches', JSON.stringify(matches));
     
-    // Guardar en Google Sheets si está conectado
-    if (useCloudStorage && sheetsService.checkAuth()) {
+    // Guardar en Firestore si está conectado
+    if (useCloudStorage && firestoreService.isAuthenticated()) {
         try {
-            showStatus('📤 Guardando en Google Sheets...', 'info');
-            await sheetsService.guardarPartido(matchData);
+            showStatus('📤 Guardando en Firestore...', 'info');
+            await firestoreService.guardarPartido(matchData);
             showStatus('✓ Partido guardado en la nube', 'success');
         } catch (error) {
             console.error('Error guardando en la nube:', error);
@@ -463,11 +457,11 @@ async function submitEvaluation(e) {
     evaluations.push(evaluationData);
     localStorage.setItem('evaluations', JSON.stringify(evaluations));
     
-    // Guardar en Google Sheets si está conectado
-    if (useCloudStorage && sheetsService.checkAuth()) {
+    // Guardar en Firestore si está conectado
+    if (useCloudStorage && firestoreService.isAuthenticated()) {
         try {
-            showStatus('📤 Guardando evaluación en Google Sheets...', 'info');
-            await sheetsService.guardarEvaluacion(evaluationData);
+            showStatus('📤 Guardando evaluación en Firestore...', 'info');
+            await firestoreService.guardarEvaluacion(evaluationData);
             showStatus('✓ Evaluación guardada en la nube', 'success');
         } catch (error) {
             console.error('Error guardando evaluación en la nube:', error);
@@ -624,11 +618,11 @@ async function deleteMatch(matchId) {
     evaluations = evaluations.filter(e => e.matchId !== matchId);
     localStorage.setItem('evaluations', JSON.stringify(evaluations));
     
-    // Eliminar de Google Sheets si está conectado
-    if (useCloudStorage && sheetsService.checkAuth()) {
+    // Eliminar de Firestore si está conectado
+    if (useCloudStorage && firestoreService.isAuthenticated()) {
         try {
-            showStatus('🗑️ Eliminando de Google Sheets...', 'info');
-            await sheetsService.eliminarPartido(matchId);
+            showStatus('🗑️ Eliminando de Firestore...', 'info');
+            await firestoreService.eliminarPartido(matchId);
             showStatus('✓ Partido eliminado de la nube', 'success');
         } catch (error) {
             console.error('Error eliminando de la nube:', error);
