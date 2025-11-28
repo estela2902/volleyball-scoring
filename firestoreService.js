@@ -1,6 +1,7 @@
 // Servicio para gestionar Firestore
 class FirestoreService {
     constructor() {
+        this.app = null;
         this.db = null;
         this.auth = null;
         this.initialized = false;
@@ -9,29 +10,15 @@ class FirestoreService {
     // Inicializar Firebase
     async initialize() {
         try {
-            // Importar Firebase desde CDN
-            const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js');
-            const { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-            const { getAuth, signInWithPopup, GoogleAuthProvider, signOut } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
-
-            // Inicializar Firebase
-            const app = initializeApp(FIREBASE_CONFIG);
-            this.db = getFirestore(app);
-            this.auth = getAuth(app);
+            // Verificar si Firebase ya está inicializado
+            if (!firebase.apps.length) {
+                this.app = firebase.initializeApp(FIREBASE_CONFIG);
+            } else {
+                this.app = firebase.app();
+            }
             
-            // Guardar referencias a las funciones de Firestore
-            this.collection = collection;
-            this.addDoc = addDoc;
-            this.getDocs = getDocs;
-            this.doc = doc;
-            this.updateDoc = updateDoc;
-            this.deleteDoc = deleteDoc;
-            this.query = query;
-            this.where = where;
-            this.orderBy = orderBy;
-            this.GoogleAuthProvider = GoogleAuthProvider;
-            this.signInWithPopup = signInWithPopup;
-            this.signOut = signOut;
+            this.db = firebase.firestore();
+            this.auth = firebase.auth();
 
             this.initialized = true;
             console.log('Firebase inicializado correctamente');
@@ -49,8 +36,8 @@ class FirestoreService {
         }
 
         try {
-            const provider = new this.GoogleAuthProvider();
-            const result = await this.signInWithPopup(this.auth, provider);
+            const provider = new firebase.auth.GoogleAuthProvider();
+            const result = await this.auth.signInWithPopup(provider);
             console.log('Usuario autenticado:', result.user.email);
             return result.user;
         } catch (error) {
@@ -62,7 +49,7 @@ class FirestoreService {
     // Cerrar sesión
     async signOutUser() {
         try {
-            await this.signOut(this.auth);
+            await this.auth.signOut();
             console.log('Sesión cerrada');
         } catch (error) {
             console.error('Error cerrando sesión:', error);
@@ -83,8 +70,7 @@ class FirestoreService {
         }
 
         try {
-            const partidosRef = this.collection(this.db, 'partidos');
-            const docRef = await this.addDoc(partidosRef, matchData);
+            const docRef = await this.db.collection('partidos').add(matchData);
             console.log('Partido guardado con ID:', docRef.id);
             return { ...matchData, firestoreId: docRef.id };
         } catch (error) {
@@ -99,9 +85,9 @@ class FirestoreService {
         }
 
         try {
-            const partidosRef = this.collection(this.db, 'partidos');
-            const q = this.query(partidosRef, this.orderBy('fechaCreacion', 'desc'));
-            const querySnapshot = await this.getDocs(q);
+            const querySnapshot = await this.db.collection('partidos')
+                .orderBy('fechaCreacion', 'desc')
+                .get();
             
             const partidos = [];
             querySnapshot.forEach((doc) => {
@@ -125,8 +111,7 @@ class FirestoreService {
         }
 
         try {
-            const partidoRef = this.doc(this.db, 'partidos', firestoreId);
-            await this.deleteDoc(partidoRef);
+            await this.db.collection('partidos').doc(firestoreId).delete();
             console.log('Partido eliminado:', firestoreId);
         } catch (error) {
             console.error('Error eliminando partido:', error);
@@ -142,8 +127,7 @@ class FirestoreService {
         }
 
         try {
-            const evaluacionesRef = this.collection(this.db, 'evaluaciones');
-            const docRef = await this.addDoc(evaluacionesRef, evaluationData);
+            const docRef = await this.db.collection('evaluaciones').add(evaluationData);
             console.log('Evaluación guardada con ID:', docRef.id);
             return { ...evaluationData, firestoreId: docRef.id };
         } catch (error) {
@@ -158,9 +142,9 @@ class FirestoreService {
         }
 
         try {
-            const evaluacionesRef = this.collection(this.db, 'evaluaciones');
-            const q = this.query(evaluacionesRef, this.orderBy('fechaEnvio', 'desc'));
-            const querySnapshot = await this.getDocs(q);
+            const querySnapshot = await this.db.collection('evaluaciones')
+                .orderBy('fechaEnvio', 'desc')
+                .get();
             
             const evaluaciones = [];
             querySnapshot.forEach((doc) => {
@@ -184,9 +168,9 @@ class FirestoreService {
         }
 
         try {
-            const evaluacionesRef = this.collection(this.db, 'evaluaciones');
-            const q = this.query(evaluacionesRef, this.where('matchId', '==', matchId));
-            const querySnapshot = await this.getDocs(q);
+            const querySnapshot = await this.db.collection('evaluaciones')
+                .where('matchId', '==', matchId)
+                .get();
             
             const evaluaciones = [];
             querySnapshot.forEach((doc) => {
