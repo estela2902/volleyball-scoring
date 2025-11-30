@@ -1,3 +1,182 @@
+/* Estilos para la pantalla de evaluación pública */
+#publicEvalView {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    padding: 2em 2em 1.5em 2em;
+}
+#publicEvalView h2, #publicEvalView h3 {
+    margin-top: 0.5em;
+}
+#publicEvalView .match-header {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin-bottom: 0.5em;
+}
+#publicEvalView .match-meta {
+    color: #555;
+    font-size: 1em;
+    margin-bottom: 1.2em;
+    display: flex;
+    gap: 2em;
+    align-items: center;
+}
+#publicEvalView .eval-form-section {
+    background: #f7fafd;
+    border-radius: 8px;
+    padding: 1.2em 1.5em;
+    margin-bottom: 1.5em;
+}
+#publicEvalView .eval-form-row {
+    display: flex;
+    gap: 1.5em;
+    margin-bottom: 1em;
+}
+#publicEvalView label {
+    font-weight: 500;
+    margin-bottom: 0.2em;
+    display: block;
+}
+#publicEvalView input[type="text"],
+#publicEvalView input[type="email"] {
+    width: 100%;
+    padding: 0.5em 0.7em;
+    border: 1px solid #d0d7e2;
+    border-radius: 5px;
+    font-size: 1em;
+    background: #fff;
+}
+#publicEvalView select {
+    width: 100%;
+    padding: 0.5em 0.7em;
+    border: 1px solid #d0d7e2;
+    border-radius: 5px;
+    font-size: 1em;
+    background: #fff;
+}
+#publicEvalView .resultado-box {
+    background: #f3f6fa;
+    border-radius: 8px;
+    padding: 1em 1.5em;
+    font-size: 1.2em;
+    font-weight: 600;
+    margin-bottom: 1.5em;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+/* Iconos de estado de evaluación */
+.eval-icons {
+    display: flex;
+    gap: 0.5em;
+    align-items: center;
+    justify-content: center;
+}
+.eval-icon {
+    width: 22px;
+    height: 22px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+.eval-icon-local {
+    color: #b0b0b0;
+}
+.eval-icon-visitante {
+    color: #b0b0b0;
+}
+.eval-icon-arbitro {
+    color: #b0b0b0;
+}
+.eval-icon[filled].eval-icon-local {
+    color: #43a047;
+}
+.eval-icon[filled].eval-icon-visitante {
+    color: #1976d2;
+}
+.eval-icon[filled].eval-icon-arbitro {
+    color: #fbc02d;
+}
+.eval-icon[filled] {
+    cursor: not-allowed;
+    opacity: 1;
+}
+.eval-icon:not([filled]) {
+    cursor: pointer;
+}
+.eval-icon[filled] {
+    opacity: 1;
+}
+/* Botones de acciones en la tabla pública */
+.btn-public-action {
+    background: #eaf1fb;
+    color: #1a2a3a;
+    border: 1px solid #b5c9e2;
+    border-radius: 4px;
+    padding: 0.25em 0.7em;
+    margin: 0 0.15em;
+    font-size: 0.97em;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+.btn-public-action:hover {
+    background: #d2e3fa;
+    color: #0a1a2a;
+    border-color: #7fa7d9;
+}
+/* Tabla de partidos públicos */
+h3, h4 {
+    margin-bottom: 0.3em;
+    margin-top: 1.2em;
+}
+
+.public-matches-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 2em;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.public-matches-table th, .public-matches-table td {
+    border-bottom: 1px solid #e0e0e0;
+    padding: 0.75em 1.2em;
+    text-align: left;
+}
+.public-matches-table th {
+    background: #eaf1fb;
+    font-weight: 700;
+    color: #1a2a3a;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    box-shadow: 0 2px 2px -2px #e0e0e0;
+}
+.public-matches-table tr {
+    transition: background 0.2s;
+}
+.public-matches-table tr:nth-child(even) td {
+    background: #f4f8fb;
+}
+.public-matches-table tr:nth-child(odd) td {
+    background: #fff;
+}
+.public-matches-table tr:hover td {
+    background: #e0ecf7;
+}
+.public-matches-table td {
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+    border-left: 1px solid #f0f0f0;
+}
+.public-matches-table td:first-child {
+    border-left: none;
+}
+h3, h4 {
+    margin-bottom: 0.3em;
+    margin-top: 1.2em;
+}
 * {
     margin: 0;
     padding: 0;
@@ -405,6 +584,45 @@ h1 {
 
 .nav-btn:hover {
     background-color: #2d3748;
+}
+
+/* Filtros públicos: selects y input consistentes */
+#publicView .public-filters select,
+#publicView .public-filters input[type="text"] {
+    width: 100%;
+    padding: 0.5em 0.7em;
+    border: 1px solid #d0d7e2;
+    border-radius: 5px;
+    font-size: 1em;
+    background: #fff;
+}
+
+#publicView .public-filters select#filtroEdicion {
+    min-width: 540px;
+    max-width: 840px;
+}
+
+#publicView .public-filters select#filtroGrupo {
+    min-width: 200px;
+    max-width: 260px;
+}
+
+#publicView .public-filters input[type="text"]#filtroEquipoLocal {
+    min-width: 200px;
+    max-width: 260px;
+    border: 1px solid #d0d7e2;
+    border-radius: 5px;
+    font-size: 1em;
+    background: #fff;
+    padding: 0.5em 0.7em;
+    height: 40px;
+    margin-bottom: 0;
+    transition: border 0.2s;
+}
+
+#publicView .public-filters input[type="text"]#filtroEquipoLocal:focus {
+    border: 1.5px solid #1976d2;
+    outline: none;
 }
 
 /* Vistas */
