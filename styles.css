@@ -1,3 +1,12 @@
+/* Mejor separación visual de cada pregunta de evaluación */
+.eval-question {
+    background: #f5f8fc;
+    border: 1px solid #e0e6ef;
+    border-radius: 8px;
+    padding: 1.1em 1.2em 0.7em 1.2em;
+    margin-bottom: 1.3em;
+    box-shadow: 0 1px 4px rgba(30,60,90,0.04);
+}
 /* Estilos para la pantalla de evaluación pública */
 #publicEvalView {
     background: #fff;
@@ -78,32 +87,30 @@
     opacity: 0.7;
     transition: opacity 0.2s;
 }
-.eval-icon-local {
-    color: #b0b0b0;
-}
-.eval-icon-visitante {
-    color: #b0b0b0;
-}
+/* Colores iconos inactivos */
+.eval-icon-local,
+.eval-icon-visitante,
 .eval-icon-arbitro {
-    color: #b0b0b0;
+    color: #c2c7d0;
 }
-.eval-icon[filled].eval-icon-local {
+/* Colores iconos activos */
+.eval-icon.filled.eval-icon-local {
     color: #43a047;
 }
-.eval-icon[filled].eval-icon-visitante {
+.eval-icon.filled.eval-icon-visitante {
     color: #1976d2;
 }
-.eval-icon[filled].eval-icon-arbitro {
-    color: #fbc02d;
+.eval-icon.filled.eval-icon-arbitro {
+    color: #e6b800;
 }
-.eval-icon[filled] {
+.eval-icon.filled {
     cursor: not-allowed;
     opacity: 1;
 }
-.eval-icon:not([filled]) {
+.eval-icon:not(.filled) {
     cursor: pointer;
 }
-.eval-icon[filled] {
+.eval-icon.filled {
     opacity: 1;
 }
 /* Botones de acciones en la tabla pública */
@@ -602,9 +609,18 @@ h1 {
     max-width: 840px;
 }
 
-#publicView .public-filters select#filtroGrupo {
-    min-width: 200px;
-    max-width: 260px;
+#publicView .public-filters select#filtroGrupo,
+#filtroGrupo.choices__input, #filtroGrupo + .choices .choices__inner {
+    min-width: unset !important;
+    max-width: 260px !important;
+    width: 100% !important;
+}
+
+#publicView .public-filters .choices#filtroGrupo,
+#publicView .public-filters #filtroGrupo + .choices .choices__inner {
+    min-width: unset !important;
+    max-width: 260px !important;
+    width: 100% !important;
 }
 
 #publicView .public-filters input[type="text"]#filtroEquipoLocal {
@@ -623,6 +639,18 @@ h1 {
 #publicView .public-filters input[type="text"]#filtroEquipoLocal:focus {
     border: 1.5px solid #1976d2;
     outline: none;
+}
+
+#filtroEdicion.choices__input, #filtroEdicion + .choices .choices__inner {
+    min-width: 540px !important;
+    max-width: 840px !important;
+    width: 100% !important;
+}
+
+#publicView .public-filters .choices {
+    min-width: 540px !important;
+    max-width: 840px !important;
+    width: 100% !important;
 }
 
 /* Vistas */
