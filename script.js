@@ -4,9 +4,145 @@ let currentTeam = null;
 let useCloudStorage = false;
 let __submittingEvaluation = false;
 const __submittingByMatch = new Map();
+let currentUser = null;
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', async () => {
+
+    // ========== AUTENTICACIÓN ==========
+    
+    // Verificar sesión existente
+    async function checkAuth() {
+        try {
+            const { data: { user }, error } = await supabase.auth.getUser();
+            // Si no hay sesión activa, no es un error, simplemente no hay usuario
+            if (error && error.message !== 'Auth session missing!') {
+                console.warn('checkAuth error:', error);
+            }
+            currentUser = user;
+            updateAuthUI(user);
+            return user;
+        } catch (e) {
+            // Sesión no existe, es normal al cargar sin login
+            currentUser = null;
+            updateAuthUI(null);
+            return null;
+        }
+    }
+
+    // Actualizar UI según estado de autenticación
+    function updateAuthUI(user) {
+        const btnLogin = document.getElementById('btnLogin');
+        const btnLogout = document.getElementById('btnLogout');
+        const userEmailEl = document.getElementById('userEmail');
+        const authStatus = document.getElementById('authStatus');
+
+        if (user) {
+            if (btnLogin) btnLogin.classList.add('hidden');
+            if (btnLogout) btnLogout.classList.remove('hidden');
+            if (userEmailEl) userEmailEl.textContent = user.email || '';
+            if (authStatus) {
+                authStatus.textContent = '✓ Sesión activa';
+                authStatus.className = 'sync-status success';
+            }
+        } else {
+            if (btnLogin) btnLogin.classList.remove('hidden');
+            if (btnLogout) btnLogout.classList.add('hidden');
+            if (userEmailEl) userEmailEl.textContent = '';
+            if (authStatus) {
+                authStatus.textContent = '';
+                authStatus.className = 'sync-status';
+            }
+        }
+    }
+
+    // Login
+    async function handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const errorEl = document.getElementById('loginError');
+
+        if (errorEl) errorEl.style.display = 'none';
+
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            
+            currentUser = data.user;
+            updateAuthUI(data.user);
+            showStatus('✓ Inicio de sesión exitoso', 'success');
+            showView('publicView');
+            cargarPartidosPublicos();
+        } catch (error) {
+            console.error('Login error:', error);
+            if (errorEl) {
+                errorEl.textContent = error.message || 'Error al iniciar sesión. Verifica tus credenciales.';
+                errorEl.style.display = 'block';
+            }
+        }
+    }
+
+    // Logout
+    async function handleLogout() {
+        try {
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+            
+            currentUser = null;
+            updateAuthUI(null);
+            showStatus('Sesión cerrada', 'info');
+            showView('publicView');
+            cargarPartidosPublicos();
+        } catch (error) {
+            console.error('Logout error:', error);
+            showStatus('Error al cerrar sesión', 'error');
+        }
+    }
+
+    // Recuperar contraseña
+    async function handleForgotPassword() {
+        const email = prompt('Introduce tu email para restablecer la contraseña:');
+        if (!email) return;
+
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: window.location.origin
+            });
+            if (error) throw error;
+            alert('Se ha enviado un email para restablecer tu contraseña. Revisa tu bandeja de entrada.');
+        } catch (error) {
+            console.error('Password reset error:', error);
+            alert('Error al enviar el email: ' + (error.message || 'Inténtalo de nuevo.'));
+        }
+    }
+
+    // Event listeners de autenticación
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) loginForm.addEventListener('submit', handleLogin);
+    
+    const btnLogin = document.getElementById('btnLogin');
+    if (btnLogin) btnLogin.addEventListener('click', () => showView('loginView'));
+    
+    const btnLogout = document.getElementById('btnLogout');
+    if (btnLogout) btnLogout.addEventListener('click', handleLogout);
+    
+    const btnBackToPublic = document.getElementById('btnBackToPublic');
+    if (btnBackToPublic) btnBackToPublic.addEventListener('click', () => {
+        showView('publicView');
+        cargarPartidosPublicos();
+    });
+    
+    const btnForgotPassword = document.getElementById('btnForgotPassword');
+    if (btnForgotPassword) btnForgotPassword.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleForgotPassword();
+    });
+
+    // Verificar autenticación al cargar
+    await checkAuth();
+
+    // ========== FIN AUTENTICACIÓN ==========
 
     // Botón de partidos públicos en la cabecera pública (opcional, recarga la vista)
     const btnIrPartidos2 = document.getElementById('btnIrPartidos2');
@@ -46,6 +182,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const filtroEdicion = document.getElementById('filtroEdicion');
     const filtroGrupo = document.getElementById('filtroGrupo');
     const filtroEquipoLocal = document.getElementById('filtroEquipoLocal');
+    const filtroIdPartido = document.getElementById('filtroIdPartido');
     const btnLimpiarFiltros = document.getElementById('btnLimpiarFiltros');
     const publicMatchesList = document.getElementById('publicMatchesList');
 
@@ -54,6 +191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const choicesGrupo = new Choices(filtroGrupo, { searchEnabled: true, itemSelectText: '', shouldSort: false, placeholder: true, placeholderValue: 'Todos los Grupos' });
 
     let gridInstance = null;
+    let partidosCargados = []; // Cache global de partidos para reutilizar en mostrarPublicEval
 
         // Small debounce helper to avoid rapid duplicate calls
         function debounce(fn, wait) {
@@ -81,30 +219,100 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 lista.innerHTML = '';
                 console.log('cargarPartidosPublicos: container found, querying supabase...');
-                let { data, error } = await supabase.from('partidos').select('*');
-                if (error) throw error;
-            partidos = data;
-            console.log('cargarPartidosPublicos: supabase returned', partidos && partidos.length);
+                
+                // Supabase tiene límite de 1000 registros por defecto, necesitamos traer todos
+                let allPartidos = [];
+                let from = 0;
+                const pageSize = 1000;
+                let hasMore = true;
+                
+                while (hasMore) {
+                    let { data, error } = await supabase
+                        .from('partidos')
+                        .select('*')
+                        .range(from, from + pageSize - 1);
+                    
+                    if (error) {
+                        console.error('Error loading partidos from Supabase:', error);
+                        throw error;
+                    }
+                    
+                    if (data && data.length > 0) {
+                        allPartidos = allPartidos.concat(data);
+                        from += pageSize;
+                        hasMore = data.length === pageSize;
+                    } else {
+                        hasMore = false;
+                    }
+                }
+                
+                partidos = allPartidos;
+                console.log('cargarPartidosPublicos: supabase returned', partidos.length, 'partidos (total en DB)');
             // Normalizar claves para la vista pública (renderizarPartidosPublicos espera keys como 'idPartido', 'Local', 'Visitante', 'Fecha')
             partidos = (partidos || []).map(p => {
+                // Prioridad: usar 'fecha' si existe y no está vacío, sino usar 'fechajornada'
+                let fechaNormalizada = '';
+                if (p.fecha && String(p.fecha).trim() !== '') {
+                    fechaNormalizada = p.fecha;
+                } else if (p.fechajornada && String(p.fechajornada).trim() !== '') {
+                    fechaNormalizada = p.fechajornada;
+                }
+                
+                // Procesar Edicion para extraer solo la parte después del guión
+                const edicionCompleta = p.edicion || p.Edicion || '';
+                const edicionProcesada = edicionCompleta.includes('-') 
+                    ? edicionCompleta.split('-')[1].trim() 
+                    : edicionCompleta;
+                
                 return Object.assign({}, p, {
                     idPartido: p.idpartido || p.idPartido || p.id || p.ID_PARTIDO || p.idPartida || '',
                     Local: p.local || p.Local || p.equipoLocal || '',
                     Visitante: p.visitante || p.Visitante || p.equipoVisitante || '',
-                    Fecha: p.fecha || p.fechajornada || p.Fecha || p['Fecha jornada'] || '',
+                    Fecha: fechaNormalizada,
                     Edicion: p.edicion || p.Edicion || '',
-                    'Grupo edicion': p.grupoedicion || p['grupo edicion'] || p.grupo || ''
+                    EdicionMostrar: edicionProcesada,
+                    'Grupo edicion': p.grupoedicion || p['grupo edicion'] || p.grupo || '',
+                    Categoria: p.categoria || p.Categoria || '',
+                    Genero: p.genero || p.Genero || p.sexo || p.Sexo || '',
+                    Grupo: (p.grupoedicion || p['grupo edicion'] || p.grupo || p.Grupo || '').replace(/^Grupo\s*/i, '')
                 });
             });
-            console.log('cargarPartidosPublicos -> partidos sample:', partidos.length, partidos.slice(0,3));
+            console.log('cargarPartidosPublicos -> partidos normalizados:', partidos.length);
+            // Obtener evaluaciones para marcar qué roles ya están completados por partido
+            let allEvals = [];
+            try {
+                allEvals = await getEvaluations();
+            } catch (ee) {
+                console.warn('cargarPartidosPublicos: could not load evaluations for UI state', ee);
+            }
+            const evalMap = {};
+            (allEvals || []).forEach(ev => {
+                const pid = String(ev.idpartido || ev.idPartido || ev.matchId || ev.id || '').trim();
+                if (!pid) return;
+                if (!evalMap[pid]) evalMap[pid] = { local: false, visitante: false };
+                const equipo = String(ev.equipo || '').toLowerCase();
+                const rolText = String(ev.rol || '').toLowerCase();
+                if (equipo === 'local' || rolText.includes('local')) evalMap[pid].local = true;
+                if (equipo === 'visitante' || rolText.includes('visitante')) evalMap[pid].visitante = true;
+            });
+            // Adjuntar el estado de evaluaciones a cada partido para la renderización
+            partidos = (partidos || []).map(p => {
+                const pid = p.idPartido || p.idpartido || p.id || '';
+                const eState = evalMap[String(pid)] || { local: false, visitante: false };
+                return Object.assign({}, p, { evaluaciones: eState });
+            });
             // Log detected ediciones/grupos para depuración
             const ediciones = [...new Set(partidos.map(x => x.Edicion).filter(Boolean))];
             const grupos = [...new Set(partidos.map(x => x['Grupo edicion']).filter(Boolean))];
             console.log('Ediciones detectadas:', ediciones.slice(0,10));
             console.log('Grupos detectados:', grupos.slice(0,10));
+            
+            // Guardar en cache global para reutilizar en mostrarPublicEval
+            partidosCargados = partidos;
         } catch (e) {
             // Si falla Supabase, usa localStorage como respaldo
             partidos = JSON.parse(localStorage.getItem('matches') || '[]');
+            partidosCargados = partidos;
             if (!partidos.length) {
                 publicMatchesList.innerHTML = '<p class="no-data">No se pudieron cargar los partidos.</p>';
                 return;
@@ -119,6 +327,201 @@ document.addEventListener('DOMContentLoaded', async () => {
     const debouncedCargarPartidosPublicos = debounce(() => { cargarPartidosPublicos(); }, 250);
     const debouncedLoadMatches = debounce(() => { loadMatches(); }, 250);
     
+    // Función global para mostrar pantalla de evaluación pública (FUERA de renderizarPartidosPublicos)
+    window.mostrarPublicEval = async function (event, rol) {
+        console.log('mostrarPublicEval called with rol:', rol, 'event:', event);
+        event = event || window.event;
+        try {
+            if (event && typeof event.preventDefault === 'function') event.preventDefault();
+            
+            // Verificar autenticación antes de mostrar formulario
+            if (!currentUser) {
+                alert('Debes iniciar sesión para completar una evaluación.');
+                showView('loginView');
+                return;
+            }
+
+            // Obtener el elemento SVG que fue clickeado
+            const svg = event.currentTarget || event.target;
+            console.log('SVG element:', svg);
+            console.log('SVG dataset:', svg.dataset);
+            console.log('SVG data-id attribute:', svg.getAttribute('data-id'));
+            
+            // Extraer el ID del partido desde el atributo data-id
+            let idPartido = null;
+            if (svg && svg.dataset && svg.dataset.id) {
+                idPartido = svg.dataset.id;
+            } else if (svg && svg.getAttribute) {
+                idPartido = svg.getAttribute('data-id');
+            }
+            
+            // Si no encontramos el ID en el SVG clickeado, buscar en el elemento padre
+            if (!idPartido && svg && svg.parentElement) {
+                const parent = svg.parentElement;
+                if (parent.dataset && parent.dataset.id) {
+                    idPartido = parent.dataset.id;
+                } else if (parent.getAttribute) {
+                    idPartido = parent.getAttribute('data-id');
+                }
+            }
+            
+            console.log('mostrarPublicEval: idPartido extraído =', idPartido);
+            
+            if (!idPartido) {
+                console.error('No se pudo extraer el ID del partido del elemento clickeado');
+                alert('Error: No se pudo identificar el partido. Por favor, intenta de nuevo.');
+                return;
+            }
+
+            // Buscar partido en el cache de partidos ya cargados
+            console.log('Buscando partido con ID:', idPartido, 'en', partidosCargados.length, 'partidos cargados');
+            let partido = partidosCargados.find(p => {
+                const pId = String(p.idPartido || p.idpartido || p.id || '');
+                const match = pId === String(idPartido);
+                if (match) {
+                    console.log('✓ ENCONTRADO:', pId, '===', idPartido);
+                }
+                return match;
+            });
+
+            if (!partido) {
+                console.error('Partido no encontrado con ID:', idPartido);
+                console.log('IDs disponibles (primeros 10):', partidosCargados.slice(0, 10).map(p => p.idPartido || p.idpartido));
+                alert('No se encontró el partido con ID: ' + idPartido + '. Por favor, intenta de nuevo.');
+                return;
+            }
+
+            console.log('Partido encontrado:', partido);
+
+            // Set global current match/team so submitEvaluation can use them
+            currentMatch = partido;
+            currentTeam = rol;
+            console.log('mostrarPublicEval -> currentMatch.id, currentTeam:', currentMatch && currentMatch.id, currentTeam);
+
+            // Mostrar pantalla
+            document.querySelectorAll('.view').forEach(function(v) { v.classList.add('hidden'); });
+            const publicEvalViewEl = document.getElementById('publicEvalView');
+            if (publicEvalViewEl) publicEvalViewEl.style.display = '';
+            const publicEvalViewEl3 = document.getElementById('publicEvalView'); 
+            if (publicEvalViewEl3) publicEvalViewEl3.classList.remove('hidden');
+
+            // Renderizar contenido (usar campos alternativos si no existen)
+            const localName = partido.local || partido.equipoLocal || partido.Local || '';
+            const visitanteName = partido.visitante || partido.equipoVisitante || partido.Visitante || '';
+
+            var evalHtml = '';
+            evalHtml += '<div class="match-header">' + localName + ' vs ' + visitanteName + '</div>';
+            evalHtml += '<div class="match-meta">';
+            evalHtml += '<span>' + (partido.edicion || '') + '</span>';
+            evalHtml += '<span>📍 ' + (partido['campojuego'] || partido.lugar || '') + '</span>';
+            evalHtml += '<span>📅 ' + formatearFecha(partido.fecha || partido['fechajornada']) + '</span>';
+            evalHtml += '</div>';
+            evalHtml += '<form id="scoringForm">';
+            evalHtml += '<div class="eval-form-section">';
+            evalHtml += '<h3>Información del Evaluador</h3>';
+            evalHtml += '<div class="eval-form-row">';
+            evalHtml += '<div style="flex:2">';
+            evalHtml += '<label>Nombre completo</label>';
+            evalHtml += '<input type="text" name="nombre" id="nombre" placeholder="Tu nombre y apellidos" required>';
+            evalHtml += '</div>';
+            evalHtml += '<div style="flex:1">';
+            evalHtml += '<label>Email</label>';
+            evalHtml += '<input type="email" name="email" id="email" placeholder="tu@email.com" required>';
+            evalHtml += '</div>';
+            evalHtml += '</div>';
+            evalHtml += '<div class="eval-form-row">';
+            evalHtml += '<div style="flex:1">';
+            evalHtml += '<label>Tu rol en el partido</label>';
+            evalHtml += '<input type="text" name="rol" id="rol" value="' + (rol === 'local' ? 'Entrenador/a Equipo Local' : rol === 'visitante' ? 'Entrenador/a Equipo Visitante' : 'Árbitro/a') + '" readonly>';
+            evalHtml += '</div>';
+            evalHtml += '</div>';
+            evalHtml += '</div>';
+            evalHtml += '<div class="resultado-box">RESULTADO <span id="publicEvalResultado">0</span> / 16</div>';
+            evalHtml += '<div class="eval-form-section">';
+            evalHtml += '<h3>Cuestionario de Evaluación</h3>';
+            evalHtml += '<div style="color:#888;font-size:1em;margin-bottom:1em;">Selecciona una opción para cada categoría.</div>';
+            evalHtml += '<div class="eval-question">';
+            evalHtml += '<strong>1. Entrenador/a Contrario/a</strong>';
+            evalHtml += '<div>';
+            evalHtml += '<label><input type="radio" name="entrenador" value="0" required> <span class="score-badge" style="background:#e53935;color:#fff;">0</span> Conducta antideportiva (protestas constantes, faltas de respeto, incitación a la tensión).</label><br>';
+            evalHtml += '<label><input type="radio" name="entrenador" value="1"> <span class="score-badge" style="background:#fb8c00;color:#fff;">1</span> Actitud negativa frecuente, poco colaborativa.</label><br>';
+            evalHtml += '<label><input type="radio" name="entrenador" value="2" checked> <span class="score-badge" style="background:#fbc02d;color:#222;">2</span> Actitud correcta en general, aunque con momentos de tensión.</label><br>';
+            evalHtml += '<label><input type="radio" name="entrenador" value="3"> <span class="score-badge" style="background:#8bc34a;color:#222;">3</span> Actitud positiva, respeta las decisiones arbitrales y fomenta el juego limpio.</label><br>';
+            evalHtml += '<label><input type="radio" name="entrenador" value="4"> <span class="score-badge" style="background:#43a047;color:#fff;">4</span> Ejemplo de deportividad: colaboración, respeto total, facilita el desarrollo del partido.</label>';
+            evalHtml += '</div>';
+            evalHtml += '</div>';
+            evalHtml += '<div class="eval-question">';
+            evalHtml += '<strong>2. Deportistas Equipo Contrario</strong>';
+            evalHtml += '<div>';
+            evalHtml += '<label><input type="radio" name="deportistas" value="0" required> <span class="score-badge" style="background:#e53935;color:#fff;">0</span> Conducta violenta o antideportiva reiterada.</label><br>';
+            evalHtml += '<label><input type="radio" name="deportistas" value="1"> <span class="score-badge" style="background:#fb8c00;color:#fff;">1</span> Incidentes frecuentes (provocaciones, malas actitudes, protestas al árbitro/a).</label><br>';
+            evalHtml += '<label><input type="radio" name="deportistas" value="2" checked> <span class="score-badge" style="background:#fbc02d;color:#222;">2</span> Comportamiento aceptable con algunas acciones negativas aisladas.</label><br>';
+            evalHtml += '<label><input type="radio" name="deportistas" value="3"> <span class="score-badge" style="background:#8bc34a;color:#222;">3</span> Buen comportamiento, respeto entre rivales, pocas incidencias.</label><br>';
+            evalHtml += '<label><input type="radio" name="deportistas" value="4"> <span class="score-badge" style="background:#43a047;color:#fff;">4</span> Ejemplo de juego limpio: cooperación, respeto total a compañeros/as, rivales y árbitro.</label>';
+            evalHtml += '</div>';
+            evalHtml += '</div>';
+            evalHtml += '<div class="eval-question">';
+            evalHtml += '<strong>3. Árbitro/a</strong>';
+            evalHtml += '<div>';
+            evalHtml += '<label><input type="radio" name="arbitro" value="0" required> <span class="score-badge" style="background:#e53935;color:#fff;">0</span> Parcialidad clara, falta de control del partido.</label><br>';
+            evalHtml += '<label><input type="radio" name="arbitro" value="1"> <span class="score-badge" style="background:#fb8c00;color:#fff;">1</span> Errores graves o repetidos, actitud poco dialogante.</label><br>';
+            evalHtml += '<label><input type="radio" name="arbitro" value="2" checked> <span class="score-badge" style="background:#fbc02d;color:#222;">2</span> Actuación correcta con errores puntuales.</label><br>';
+            evalHtml += '<label><input type="radio" name="arbitro" value="3"> <span class="score-badge" style="background:#8bc34a;color:#222;">3</span> Buen arbitraje, comunicación clara, mantiene el control.</label><br>';
+            evalHtml += '<label><input type="radio" name="arbitro" value="4"> <span class="score-badge" style="background:#43a047;color:#fff;">4</span> Excelente: imparcial, firme, dialogante y respetuoso/a.</label>';
+            evalHtml += '</div>';
+            evalHtml += '</div>';
+            evalHtml += '<div class="eval-question">';
+            evalHtml += '<strong>4. Conducta de la Afición</strong>';
+            evalHtml += '<div>';
+            evalHtml += '<label><input type="radio" name="aficion" value="0" required> <span class="score-badge" style="background:#e53935;color:#fff;">0</span> Conducta inaceptable (insultos, agresiones verbales o físicas, violencia).</label><br>';
+            evalHtml += '<label><input type="radio" name="aficion" value="1"> <span class="score-badge" style="background:#fb8c00;color:#fff;">1</span> Comportamiento negativo frecuente (protestas continuas, ambiente hostil).</label><br>';
+            evalHtml += '<label><input type="radio" name="aficion" value="2" checked> <span class="score-badge" style="background:#fbc02d;color:#222;">2</span> Conducta aceptable, aunque con momentos de tensión.</label><br>';
+            evalHtml += '<label><input type="radio" name="aficion" value="3"> <span class="score-badge" style="background:#8bc34a;color:#222;">3</span> Buena actitud, apoyo mayormente positivo.</label><br>';
+            evalHtml += '<label><input type="radio" name="aficion" value="4"> <span class="score-badge" style="background:#43a047;color:#fff;">4</span> Ejemplo de deportividad: ánimos constantes, respeto al rival y árbitro/a.</label>';
+            evalHtml += '</div>';
+            evalHtml += '</div>';
+            evalHtml += '</div>';
+            // Hidden compatibility fields expected by submitEvaluation
+            evalHtml += '<input type="hidden" id="setsGanados" value="0">';
+            evalHtml += '<input type="hidden" id="setsContrario" value="0">';
+            evalHtml += '<input type="hidden" id="firma" value="">';
+            evalHtml += '<button type="submit" class="btn-primary">Guardar Acta</button>';
+            evalHtml += '</form>';
+            const publicEvalContentEl = document.getElementById('publicEvalContent');
+            if (publicEvalContentEl) publicEvalContentEl.innerHTML = evalHtml;
+
+            // Actualizar resultado en tiempo real
+            var form = document.getElementById('scoringForm');
+            function updateResultado() {
+                var total = 0;
+                if (!form) return;
+                ['entrenador','deportistas','arbitro','aficion'].forEach(function(name) {
+                    var val = form.querySelector("input[name='"+name+"']:checked");
+                    if (val) total += parseInt(val.value);
+                });
+                const publicEvalResultadoEl = document.getElementById('publicEvalResultado');
+                if (publicEvalResultadoEl) publicEvalResultadoEl.textContent = total;
+            }
+
+            if (form) {
+                    form.addEventListener('change', updateResultado);
+                    updateResultado();
+                    // disable submit button until currentMatch is set (accept any id field)
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    const hasId = currentMatch && (currentMatch.id || currentMatch.idpartido || currentMatch.idPartido);
+                    if (submitBtn) submitBtn.disabled = !hasId;
+                    // Ensure only one submit listener exists on this dynamically created form
+                    try {
+                        form.removeEventListener('submit', submitEvaluation);
+                    } catch (remErr) { /* ignore */ }
+                    form.addEventListener('submit', submitEvaluation);
+                    console.log('Attached direct submit listener to scoringForm');
+            }
+        } catch (err) {
+            console.error('mostrarPublicEval error', err);
+            alert('Error al cargar la evaluación: ' + err.message);
+        }
+    };
 
     // Renderizar lista de partidos según filtros
     function renderizarPartidosPublicos(partidos) {
@@ -126,45 +529,88 @@ document.addEventListener('DOMContentLoaded', async () => {
         let edicion = filtroEdicion.value;
         let grupo = filtroGrupo.value;
         let equipoLocal = filtroEquipoLocal.value.trim().toLowerCase();
+        let idPartidoFiltro = filtroIdPartido ? filtroIdPartido.value.trim().toUpperCase() : '';
+        
         let filtrados = partidos.filter(p => {
             let ok = true;
-            if (edicion && p['Edicion'] !== edicion) ok = false;
-            if (grupo && p['Grupo edicion'] !== grupo) ok = false;
+            // Comparación más flexible: normalizar espacios y trim
+            if (edicion) {
+                const edicionPartido = String(p['Edicion'] || '').trim();
+                const edicionFiltro = String(edicion).trim();
+                if (edicionPartido !== edicionFiltro) ok = false;
+            }
+            if (grupo) {
+                const grupoPartido = String(p['Grupo edicion'] || '').trim();
+                const grupoFiltro = String(grupo).trim();
+                if (grupoPartido !== grupoFiltro) ok = false;
+            }
             if (equipoLocal && (!p['Local'] || !p['Local'].toLowerCase().includes(equipoLocal))) ok = false;
+            if (idPartidoFiltro) {
+                const idPartido = String(p['idPartido'] || '').toUpperCase();
+                // Debug temporal
+                if (idPartidoFiltro === 'P-011335' || idPartidoFiltro.includes('11335')) {
+                    console.log('Comparando:', { idPartido, idPartidoFiltro, coincide: idPartido.includes(idPartidoFiltro) });
+                }
+                if (!idPartido.includes(idPartidoFiltro)) ok = false;
+            }
             return ok;
         });
-        // Ordenar por Edicion, Grupo, Fecha ASCENDENTE
+        
+        // Ordenar por Fecha ASCENDENTE (de menor a mayor: Oct 2025, Nov 2025, etc.)
         filtrados.sort((a, b) => {
+            const fA = a['Fecha'] || a['Fecha jornada'] || '';
+            const fB = b['Fecha'] || b['Fecha jornada'] || '';
+            
+            // Convertir a objetos Date para comparación correcta
+            const dateA = fA ? new Date(fA) : new Date(0);
+            const dateB = fB ? new Date(fB) : new Date(0);
+            
+            if (dateA < dateB) return -1;
+            if (dateA > dateB) return 1;
+            
+            // Si fechas iguales, ordenar por Edicion y luego Grupo
             const edA = (a['Edicion'] || '').toString();
             const edB = (b['Edicion'] || '').toString();
             if (edA < edB) return -1;
             if (edA > edB) return 1;
+            
             const grA = (a['Grupo edicion'] || '').toString();
             const grB = (b['Grupo edicion'] || '').toString();
             if (grA < grB) return -1;
             if (grA > grB) return 1;
-            // Fecha ascendente
-            const fA = (a['Fecha'] || a['Fecha jornada'] || '').toString();
-            const fB = (b['Fecha'] || b['Fecha jornada'] || '').toString();
-            if (fA < fB) return -1;
-            if (fA > fB) return 1;
+            
             return 0;
         });
         // Construir datos para Grid.js
         const rows = filtrados.map(function(p) {
             return [
                 p['idPartido'] || '',
+                p['EdicionMostrar'] || '',
+                p['Grupo'] || '',
                 p['Local'] || '',
                 p['Visitante'] || '',
                 formatearFecha(p['Fecha'] || p['Fecha jornada']),
                 gridjs.html(gridEstadoEvaluacionHtml(p))
             ];
         });
-        // Destruir grid anterior si existe
-        if (gridInstance) gridInstance.destroy();
+        // Destruir grid anterior si existe y limpiar contenedor
+        if (gridInstance) {
+            try {
+                gridInstance.destroy();
+            } catch (e) {
+                console.warn('Error destroying grid:', e);
+            }
+        }
+        // Limpiar completamente el contenedor antes de crear nuevo grid
+        if (publicMatchesList) {
+            publicMatchesList.innerHTML = '';
+        }
+        
         gridInstance = new gridjs.Grid({
             columns: [
                 { name: 'ID Partido', width: '110px' },
+                { name: 'Edicion', width: '150px' },
+                { name: 'Grupo', width: '80px' },
                 { name: 'Local', width: '180px' },
                 { name: 'Visitante', width: '180px' },
                 { name: 'Fecha', width: '110px' },
@@ -191,7 +637,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Preferimos marcar completado según datos de evaluaciones si existen
             var doneLocal = false;
             var doneVisitante = false;
-            var doneArbitro = false;
             try {
                 if (p.evaluaciones) {
                     // Si la fila incluye un objeto 'evaluaciones' con claves local/visitante
@@ -201,168 +646,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (err) {
                 // ignore
             }
-            // Añadir handlers para mostrar pantalla de evaluación
+            // Añadir handlers y clases; si ya está completado lo mostramos como verde no-clickable
             var html = '';
             html += "<span class='eval-icons'>";
-            // Shield (Tabler Icons) para equipo local
-            html += "<svg class='eval-icon eval-icon-local" + (doneLocal ? ' filled' : '') + "' data-rol='local' data-id='" + id + "' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' onclick='window.mostrarPublicEval && window.mostrarPublicEval(event, \"local\")'><path d='M12 20.5c-6-2.5-8.5-6-8.5-10.5V5.5l8.5-3 8.5 3v4.5c0 4.5-2.5 8-8.5 10.5z'/></svg>";
-            // Swords (Tabler Icons) para equipo visitante (ajustado viewBox y paths)
-            html += "<svg class='eval-icon eval-icon-visitante" + (doneVisitante ? ' filled' : '') + "' data-rol='visitante' data-id='" + id + "' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' onclick='window.mostrarPublicEval && window.mostrarPublicEval(event, \"visitante\")'><path d='M14.5 17.5l-7-7'/><path d='M19 21l-6.5-6.5'/><path d='M21 21l-6-6'/><path d='M8 13l-3 3v3h3l3-3'/><path d='M16 5l3-3'/><path d='M19 8l-6-6'/></svg>";
-            // ShieldOff (Tabler Icons) para árbitro
-            html += "<svg class='eval-icon eval-icon-arbitro" + (doneArbitro ? ' filled' : '') + "' data-rol='arbitro' data-id='" + id + "' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' onclick='window.mostrarPublicEval && window.mostrarPublicEval(event, \"arbitro\")'><path d='M3 3l18 18'/><path d='M17.669 17.669C15.5 19 12 20.5 12 20.5c-6-2.5-8.5-6-8.5-10.5V5.5l5.17-1.824M19.5 5.5l-7.5-3-2.223.783M19.5 5.5v4.5c0 1.61-.195 3.117-.558 4.5'/></svg>";
+            // Shield (simple) para equipo local
+            if (doneLocal) {
+                html += "<svg class='eval-icon eval-icon-local filled disabled' data-rol='local' data-id='" + id + "' viewBox='0 0 24 24' title='Evaluación completada (prohibido)' style='cursor:not-allowed' fill='none' stroke='green' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21C7 19 4 15.5 4 10.5V5.5L12 3l8 2.5v5c0 5-3 8.5-8 10.5z'/></svg>";
+            } else {
+                html += "<svg class='eval-icon eval-icon-local' data-rol='local' data-id='" + id + "' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' onclick='window.mostrarPublicEval && window.mostrarPublicEval(event, \"local\")'><path d='M12 21C7 19 4 15.5 4 10.5V5.5L12 3l8 2.5v5c0 5-3 8.5-8 10.5z'/></svg>";
+            }
+            // Grupo/personas para equipo visitante
+            if (doneVisitante) {
+                html += "<svg class='eval-icon eval-icon-visitante filled disabled' data-rol='visitante' data-id='" + id + "' viewBox='0 0 24 24' title='Evaluación completada (prohibido)' style='cursor:not-allowed' fill='none' stroke='green' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='7' cy='10' r='3'/><circle cx='17' cy='10' r='3'/><path d='M2 20c0-2.5 3-4.5 5-4.5s5 2 5 4.5'/><path d='M12 20c0-2.5 3-4.5 5-4.5s5 2 5 4.5'/></svg>";
+            } else {
+                html += "<svg class='eval-icon eval-icon-visitante' data-rol='visitante' data-id='" + id + "' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' onclick='window.mostrarPublicEval && window.mostrarPublicEval(event, \"visitante\")'><circle cx='7' cy='10' r='3'/><circle cx='17' cy='10' r='3'/><path d='M2 20c0-2.5 3-4.5 5-4.5s5 2 5 4.5'/><path d='M12 20c0-2.5 3-4.5 5-4.5s5 2 5 4.5'/></svg>";
+            }
             html += "</span>";
             return html;
         }
-        // Función global para mostrar pantalla de evaluación pública
-        window.mostrarPublicEval = async function (event, rol) {
-            event = event || window.event;
-            try {
-                if (event && typeof event.preventDefault === 'function') event.preventDefault();
-                const svg = (event.currentTarget || event.target);
-                const idPartido = (svg && ((svg.dataset && svg.dataset.id) || svg.getAttribute && svg.getAttribute('data-id'))) || event;
-
-                // Buscar partido en Supabase (con fallback a localStorage)
-                let partido = null;
-                try {
-                    let { data, error } = await supabase.from('partidos').select('*');
-                    if (error) throw error;
-                    partido = (data || []).find(p => String(p.idpartido) === String(idPartido) || String(p.idPartido) === String(idPartido) || String(p.id) === String(idPartido) || String(p.ID_PARTIDO) === String(idPartido));
-                } catch (err) {
-                    const partidos = JSON.parse(localStorage.getItem('matches') || '[]');
-                    partido = (partidos || []).find(p => String(p.idPartido) === String(idPartido) || String(p.idpartido) === String(idPartido) || String(p.id) === String(idPartido));
-                }
-
-                if (!partido) return;
-
-                // Set global current match/team so submitEvaluation can use them
-                currentMatch = partido;
-                currentTeam = rol;
-                console.log('mostrarPublicEval -> currentMatch.id, currentTeam:', currentMatch && currentMatch.id, currentTeam);
-
-                // Mostrar pantalla
-                document.querySelectorAll('.view').forEach(function(v) { v.classList.add('hidden'); });
-                const publicEvalViewEl = document.getElementById('publicEvalView');
-                if (publicEvalViewEl) publicEvalViewEl.style.display = '';
-                const publicEvalViewEl3 = document.getElementById('publicEvalView'); if (publicEvalViewEl3) publicEvalViewEl3.classList.remove('hidden');
-
-                // Renderizar contenido (usar campos alternativos si no existen)
-                const localName = partido.local || partido.equipoLocal || partido.Local || '';
-                const visitanteName = partido.visitante || partido.equipoVisitante || partido.Visitante || '';
-
-                var evalHtml = '';
-                evalHtml += '<div class="match-header">' + localName + ' vs ' + visitanteName + '</div>';
-                evalHtml += '<div class="match-meta">';
-                evalHtml += '<span>' + (partido.edicion || '') + '</span>';
-                evalHtml += '<span>📍 ' + (partido['campojuego'] || partido.lugar || '') + '</span>';
-                evalHtml += '<span>📅 ' + formatearFecha(partido.fecha || partido['fechajornada']) + '</span>';
-                evalHtml += '</div>';
-                evalHtml += '<form id="scoringForm">';
-                evalHtml += '<div class="eval-form-section">';
-                evalHtml += '<h3>Información del Evaluador</h3>';
-                evalHtml += '<div class="eval-form-row">';
-                evalHtml += '<div style="flex:2">';
-                evalHtml += '<label>Nombre completo</label>';
-                evalHtml += '<input type="text" name="nombre" id="nombre" placeholder="Tu nombre y apellidos" required>';
-                evalHtml += '</div>';
-                evalHtml += '<div style="flex:1">';
-                evalHtml += '<label>Email</label>';
-                evalHtml += '<input type="email" name="email" id="email" placeholder="tu@email.com" required>';
-                evalHtml += '</div>';
-                evalHtml += '</div>';
-                evalHtml += '<div class="eval-form-row">';
-                evalHtml += '<div style="flex:1">';
-                evalHtml += '<label>Tu rol en el partido</label>';
-                evalHtml += '<input type="text" name="rol" id="rol" value="' + (rol === 'local' ? 'Entrenador/a Equipo Local' : rol === 'visitante' ? 'Entrenador/a Equipo Visitante' : 'Árbitro/a') + '" readonly>';
-                evalHtml += '</div>';
-                evalHtml += '</div>';
-                evalHtml += '</div>';
-                evalHtml += '<div class="resultado-box">RESULTADO <span id="publicEvalResultado">0</span> / 16</div>';
-                evalHtml += '<div class="eval-form-section">';
-                evalHtml += '<h3>Cuestionario de Evaluación</h3>';
-                evalHtml += '<div style="color:#888;font-size:1em;margin-bottom:1em;">Selecciona una opción para cada categoría.</div>';
-                // (Preguntas - reutilizamos las mismas opciones que antes)
-                evalHtml += '<div class="eval-question">';
-                evalHtml += '<strong>1. Entrenador/a Contrario/a</strong>';
-                evalHtml += '<div>';
-                evalHtml += '<label><input type="radio" name="entrenador" value="0" required> <span class="score-badge" style="background:#e53935;color:#fff;">0</span> Conducta antideportiva (protestas constantes, faltas de respeto, incitación a la tensión).</label><br>';
-                evalHtml += '<label><input type="radio" name="entrenador" value="1"> <span class="score-badge" style="background:#fb8c00;color:#fff;">1</span> Actitud negativa frecuente, poco colaborativa.</label><br>';
-                evalHtml += '<label><input type="radio" name="entrenador" value="2"> <span class="score-badge" style="background:#fbc02d;color:#222;">2</span> Actitud correcta en general, aunque con momentos de tensión.</label><br>';
-                evalHtml += '<label><input type="radio" name="entrenador" value="3"> <span class="score-badge" style="background:#8bc34a;color:#222;">3</span> Actitud positiva, respeta las decisiones arbitrales y fomenta el juego limpio.</label><br>';
-                evalHtml += '<label><input type="radio" name="entrenador" value="4"> <span class="score-badge" style="background:#43a047;color:#fff;">4</span> Ejemplo de deportividad: colaboración, respeto total, facilita el desarrollo del partido.</label>';
-                evalHtml += '</div>';
-                evalHtml += '</div>';
-                // Preguntas 2..4 (omitidas here for brevity but identical to above original code)
-                evalHtml += '<div class="eval-question">';
-                evalHtml += '<strong>2. Deportistas Equipo Contrario</strong>';
-                evalHtml += '<div>';
-                evalHtml += '<label><input type="radio" name="deportistas" value="0" required> <span class="score-badge" style="background:#e53935;color:#fff;">0</span> Conducta violenta o antideportiva reiterada.</label><br>';
-                evalHtml += '<label><input type="radio" name="deportistas" value="1"> <span class="score-badge" style="background:#fb8c00;color:#fff;">1</span> Incidentes frecuentes (provocaciones, malas actitudes, protestas al árbitro/a).</label><br>';
-                evalHtml += '<label><input type="radio" name="deportistas" value="2"> <span class="score-badge" style="background:#fbc02d;color:#222;">2</span> Comportamiento aceptable con algunas acciones negativas aisladas.</label><br>';
-                evalHtml += '<label><input type="radio" name="deportistas" value="3"> <span class="score-badge" style="background:#8bc34a;color:#222;">3</span> Buen comportamiento, respeto entre rivales, pocas incidencias.</label><br>';
-                evalHtml += '<label><input type="radio" name="deportistas" value="4"> <span class="score-badge" style="background:#43a047;color:#fff;">4</span> Ejemplo de juego limpio: cooperación, respeto total a compañeros/as, rivales y árbitro.</label>';
-                evalHtml += '</div>';
-                evalHtml += '</div>';
-                evalHtml += '<div class="eval-question">';
-                evalHtml += '<strong>3. Árbitro/a</strong>';
-                evalHtml += '<div>';
-                evalHtml += '<label><input type="radio" name="arbitro" value="0" required> <span class="score-badge" style="background:#e53935;color:#fff;">0</span> Parcialidad clara, falta de control del partido.</label><br>';
-                evalHtml += '<label><input type="radio" name="arbitro" value="1"> <span class="score-badge" style="background:#fb8c00;color:#fff;">1</span> Errores graves o repetidos, actitud poco dialogante.</label><br>';
-                evalHtml += '<label><input type="radio" name="arbitro" value="2"> <span class="score-badge" style="background:#fbc02d;color:#222;">2</span> Actuación correcta con errores puntuales.</label><br>';
-                evalHtml += '<label><input type="radio" name="arbitro" value="3"> <span class="score-badge" style="background:#8bc34a;color:#222;">3</span> Buen arbitraje, comunicación clara, mantiene el control.</label><br>';
-                evalHtml += '<label><input type="radio" name="arbitro" value="4"> <span class="score-badge" style="background:#43a047;color:#fff;">4</span> Excelente: imparcial, firme, dialogante y respetuoso/a.</label>';
-                evalHtml += '</div>';
-                evalHtml += '</div>';
-                evalHtml += '<div class="eval-question">';
-                evalHtml += '<strong>4. Conducta de la Afición</strong>';
-                evalHtml += '<div>';
-                evalHtml += '<label><input type="radio" name="aficion" value="0" required> <span class="score-badge" style="background:#e53935;color:#fff;">0</span> Conducta inaceptable (insultos, agresiones verbales o físicas, violencia).</label><br>';
-                evalHtml += '<label><input type="radio" name="aficion" value="1"> <span class="score-badge" style="background:#fb8c00;color:#fff;">1</span> Comportamiento negativo frecuente (protestas continuas, ambiente hostil).</label><br>';
-                evalHtml += '<label><input type="radio" name="aficion" value="2"> <span class="score-badge" style="background:#fbc02d;color:#222;">2</span> Conducta aceptable, aunque con momentos de tensión.</label><br>';
-                evalHtml += '<label><input type="radio" name="aficion" value="3"> <span class="score-badge" style="background:#8bc34a;color:#222;">3</span> Buena actitud, apoyo mayormente positivo.</label><br>';
-                evalHtml += '<label><input type="radio" name="aficion" value="4"> <span class="score-badge" style="background:#43a047;color:#fff;">4</span> Ejemplo de deportividad: ánimos constantes, respeto al rival y árbitro/a.</label>';
-                evalHtml += '</div>';
-                evalHtml += '</div>';
-                evalHtml += '</div>';
-                // Hidden compatibility fields expected by submitEvaluation
-                evalHtml += '<input type="hidden" id="setsGanados" value="0">';
-                evalHtml += '<input type="hidden" id="setsContrario" value="0">';
-                evalHtml += '<input type="hidden" id="firma" value="">';
-                evalHtml += '<button type="submit" class="btn-primary">Guardar Acta</button>';
-                evalHtml += '</form>';
-                const publicEvalContentEl = document.getElementById('publicEvalContent');
-                if (publicEvalContentEl) publicEvalContentEl.innerHTML = evalHtml;
-
-                // Actualizar resultado en tiempo real
-                var form = document.getElementById('scoringForm');
-                function updateResultado() {
-                    var total = 0;
-                    if (!form) return;
-                    ['entrenador','deportistas','arbitro','aficion'].forEach(function(name) {
-                        var val = form.querySelector("input[name='"+name+"']:checked");
-                        if (val) total += parseInt(val.value);
-                    });
-                    const publicEvalResultadoEl = document.getElementById('publicEvalResultado');
-                    if (publicEvalResultadoEl) publicEvalResultadoEl.textContent = total;
-                }
-
-                if (form) {
-                        form.addEventListener('change', updateResultado);
-                        updateResultado();
-                        // disable submit button until currentMatch is set (accept any id field)
-                        const submitBtn = form.querySelector('button[type="submit"]');
-                        const hasId = currentMatch && (currentMatch.id || currentMatch.idpartido || currentMatch.idPartido);
-                        if (submitBtn) submitBtn.disabled = !hasId;
-                        // Ensure only one submit listener exists on this dynamically created form
-                        try {
-                            form.removeEventListener('submit', submitEvaluation);
-                        } catch (remErr) { /* ignore */ }
-                        form.addEventListener('submit', submitEvaluation);
-                        console.log('Attached direct submit listener to scoringForm');
-                }
-            } catch (err) {
-                console.error('mostrarPublicEval error', err);
-            }
-        };
+        // La función mostrarPublicEval ya está definida globalmente arriba
         if (filtrados.length === 0) {
             publicMatchesList.innerHTML = '<p class="no-data">No hay partidos con los filtros seleccionados.</p>';
         }
@@ -400,14 +702,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Eventos de filtros con Choices.js
-    if (filtroEdicion && filtroGrupo && filtroEquipoLocal && btnLimpiarFiltros) {
+    if (filtroEdicion && filtroGrupo && filtroEquipoLocal && filtroIdPartido && btnLimpiarFiltros) {
         filtroEdicion.addEventListener('change', () => debouncedCargarPartidosPublicos());
         filtroGrupo.addEventListener('change', () => debouncedCargarPartidosPublicos());
         filtroEquipoLocal.addEventListener('input', () => debouncedCargarPartidosPublicos());
+        filtroIdPartido.addEventListener('input', () => debouncedCargarPartidosPublicos());
             btnLimpiarFiltros.addEventListener('click', () => {
             choicesEdicion.setChoiceByValue('');
             choicesGrupo.setChoiceByValue('');
             filtroEquipoLocal.value = '';
+            filtroIdPartido.value = '';
             debouncedCargarPartidosPublicos();
         });
     }
@@ -760,14 +1064,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     */
     // Event listeners para formularios
     // Eliminados eventos de crear partido
-    const scoringFormEl = document.getElementById('scoringForm');
-    if (scoringFormEl) {
-        scoringFormEl.addEventListener('submit', submitEvaluation);
-    } else {
-        console.warn('scoringForm element not found - submitEvaluation listener not attached');
-    }
+    // NOTE: scoringForm is dynamically injected, listener attached in mostrarPublicEval()
     const cancelEvalBtn = document.getElementById('cancelEvaluationBtn');
     if (cancelEvalBtn) cancelEvalBtn.addEventListener('click', () => { showView('selectMatchView'); loadAvailableMatches(); });
+    
+    // Botón de volver desde la evaluación pública a la lista de partidos
+    const btnVolverPublicEval = document.getElementById('btnVolverPublicEval');
+    if (btnVolverPublicEval) {
+        btnVolverPublicEval.addEventListener('click', () => {
+            console.log('Volviendo a la lista de partidos...');
+            showView('publicView');
+            // Forzar recarga de partidos para actualizar la tabla
+            debouncedCargarPartidosPublicos();
+        });
+    }
     
     // Event listeners para filtros
     const filterCategoriaEl = document.getElementById('filterCategoria'); if (filterCategoriaEl) filterCategoriaEl.addEventListener('change', loadAvailableMatches);
@@ -792,18 +1102,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function showStatus(message, type = 'info') {
         const statusElement = document.getElementById('syncStatus');
+        if (!statusElement) {
+            console.log('showStatus:', message, `(${type})`);
+            return;
+        }
         statusElement.textContent = message;
         statusElement.className = 'sync-status ' + type;
         
         setTimeout(() => {
-            statusElement.textContent = '';
-            statusElement.className = 'sync-status';
+            if (statusElement) {
+                statusElement.textContent = '';
+                statusElement.className = 'sync-status';
+            }
         }, 5000);
     }
 
     function showView(viewId) {
-        document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
-        const viewEl = document.getElementById(viewId); if (viewEl) viewEl.classList.remove('hidden');
+        document.querySelectorAll('.view').forEach(view => {
+            view.classList.add('hidden');
+            view.style.display = 'none';
+        });
+        const viewEl = document.getElementById(viewId);
+        if (viewEl) {
+            viewEl.classList.remove('hidden');
+            viewEl.style.display = '';
+        }
     }
 
     function updateSexoOptions() {
@@ -1186,11 +1509,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const resolvedMatchId = currentMatch.id || currentMatch.idpartido || currentMatch.idPartido;
 
+        // Incluir email del usuario autenticado si está logueado
+        const userEmail = currentUser && currentUser.email ? currentUser.email : (document.getElementById('email') && document.getElementById('email').value) || '';
+
         const evaluationData = {
             id: Date.now().toString(),
             idpartido: resolvedMatchId,
             evaluador: (document.getElementById('nombre') && document.getElementById('nombre').value) || '',
-            email: (document.getElementById('email') && document.getElementById('email').value) || '',
+            email: userEmail,
             rol: (document.getElementById('rol') && document.getElementById('rol').value) || '',
             puntuaciones: {
                 entrenador: parseInt(document.querySelector('input[name="entrenador"]:checked').value),
@@ -1214,9 +1540,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             totalpuntos: Number.isFinite(Number(evaluationData.totalPuntos)) ? parseInt(evaluationData.totalPuntos) : 0,
             fechaenvio: evaluationData.fechaEnvio ? new Date(evaluationData.fechaEnvio).toISOString() : new Date().toISOString()
         };
-        // Ensure we include the 'equipo' column (local/visitante/arbitro) expected by the DB
+        // Ensure we include the 'equipo' column (local/visitante) expected by the DB
         try {
-            const derivedEquipo = currentTeam || (String(payloadDb.rol || '').toLowerCase().includes('local') ? 'local' : (String(payloadDb.rol || '').toLowerCase().includes('visitante') ? 'visitante' : (String(payloadDb.rol || '').toLowerCase().includes('arbitro') || String(payloadDb.rol || '').toLowerCase().includes('árbitro') ? 'arbitro' : '')));
+            const derivedEquipo = currentTeam || (String(payloadDb.rol || '').toLowerCase().includes('local') ? 'local' : (String(payloadDb.rol || '').toLowerCase().includes('visitante') ? 'visitante' : ''));
             payloadDb.equipo = derivedEquipo;
             // nombre del equipo evaluado (nombreequipo) según el equipo seleccionado
             if (derivedEquipo === 'local') {

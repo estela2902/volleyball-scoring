@@ -19,13 +19,12 @@
             </div>
             <h1>ACTA DE CALIFICACIÓN / JUEGOS DEPORTIVOS DEL PRINCIPADO DE ASTURIAS</h1>
             
-            <!-- Botón de sincronización con Google Sheets -->
+            <!-- Controles de autenticación -->
             <div class="sync-controls">
-                <button id="btnGoogleAuth" class="btn-sync">🔐 Conectar con Google</button>
-                <button id="btnSync" class="btn-sync hidden">🔄 Sincronizar</button>
-                <button id="btnSignOut" class="btn-sync hidden">🚪 Cerrar Sesión</button>
-                <button id="btnIrPartidos" class="btn-sync" style="float:right;">Ver Partidos Públicos</button>
-                <span id="syncStatus" class="sync-status"></span>
+                <button id="btnIrPartidos" class="btn-sync">Ver Partidos Públicos</button>
+                <button id="btnLogin" class="btn-sync hidden">🔐 Iniciar Sesión</button>
+                <button id="btnLogout" class="btn-sync hidden">🚪 Cerrar Sesión</button>
+                <span id="authStatus" class="sync-status"></span>
                 <div id="userEmail" style="text-align:right;font-size:0.95rem;color:#333;margin-top:4px;"></div>
             </div>
         </header>
@@ -48,6 +47,7 @@
                     <select id="filtroEdicion" placeholder="Edición"></select>
                     <select id="filtroGrupo" placeholder="Grupo"></select>
                     <input type="text" id="filtroEquipoLocal" placeholder="Equipo Local..." style="min-width:180px;" />
+                    <input type="text" id="filtroIdPartido" placeholder="ID Partido (ej: P-011335)..." style="min-width:180px;" />
                     <button id="btnLimpiarFiltros" class="btn-secondary">Limpiar filtros</button>
                 </div>
                 <div id="publicMatchesList" class="matches-list"></div>
@@ -56,6 +56,31 @@
         <div id="publicEvalView" class="view" style="display:none;max-width:900px;margin:2em auto 0 auto;">
             <button id="btnVolverPublicEval" class="btn-secondary" style="margin-bottom:1em;">← Volver</button>
             <div id="publicEvalContent"></div>
+        </div>
+        
+        <!-- Vista de Login -->
+        <div id="loginView" class="view" style="display:none;max-width:500px;margin:3em auto;">
+            <div style="background:#fff;padding:2.5em;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
+                <h2 style="text-align:center;margin-bottom:1.5em;color:#1a2a3a;">Iniciar Sesión</h2>
+                <form id="loginForm">
+                    <div class="form-field" style="margin-bottom:1.2em;">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" name="email" required placeholder="tu@email.com" style="width:100%;padding:0.7em;border:1px solid #d0d7e2;border-radius:5px;font-size:1em;">
+                    </div>
+                    <div class="form-field" style="margin-bottom:1.5em;">
+                        <label for="loginPassword">Contraseña</label>
+                        <input type="password" id="loginPassword" name="password" required placeholder="Tu contraseña" style="width:100%;padding:0.7em;border:1px solid #d0d7e2;border-radius:5px;font-size:1em;">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width:100%;padding:0.8em;font-size:1.05em;">Entrar</button>
+                </form>
+                <div id="loginError" style="display:none;margin-top:1em;padding:0.8em;background:#ffebee;border:1px solid #ef5350;border-radius:5px;color:#c62828;font-size:0.95em;"></div>
+                <div style="text-align:center;margin-top:1.5em;">
+                    <a href="#" id="btnForgotPassword" style="color:#4285f4;font-size:0.95em;text-decoration:none;">¿Olvidaste tu contraseña?</a>
+                </div>
+                <div style="text-align:center;margin-top:1em;">
+                    <button id="btnBackToPublic" class="btn-secondary">← Volver a partidos</button>
+                </div>
+            </div>
         </div>
     </div>
     <!-- Choices.js para selects bonitos -->

@@ -107,6 +107,15 @@
     cursor: not-allowed;
     opacity: 1;
 }
+.eval-icon.disabled {
+    stroke: green !important;
+    color: green !important;
+    opacity: 1 !important;
+}
+.eval-icon.disabled:hover {
+    /* show 'prohibido' cursor on hover */
+    cursor: not-allowed !important;
+}
 .eval-icon:not(.filled) {
     cursor: pointer;
 }
