@@ -83,6 +83,90 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // Registro de nuevos usuarios
+    async function handleSignup(e) {
+        e.preventDefault();
+        const nombre = document.getElementById('signupNombre').value.trim();
+        const club = document.getElementById('signupClub').value.trim();
+        const email = document.getElementById('signupEmail').value.trim();
+        const password = document.getElementById('signupPassword').value;
+        const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+        const errorEl = document.getElementById('signupError');
+        const successEl = document.getElementById('signupSuccess');
+
+        if (errorEl) errorEl.style.display = 'none';
+        if (successEl) successEl.style.display = 'none';
+
+        // Validaciones
+        if (!nombre || !club || !email || !password || !passwordConfirm) {
+            if (errorEl) {
+                errorEl.textContent = 'Todos los campos son obligatorios';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+
+        if (password !== passwordConfirm) {
+            if (errorEl) {
+                errorEl.textContent = 'Las contraseñas no coinciden';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+
+        if (password.length < 6) {
+            if (errorEl) {
+                errorEl.textContent = 'La contraseña debe tener al menos 6 caracteres';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    data: {
+                        nombre: nombre,
+                        club: club
+                    },
+                    emailRedirectTo: window.location.origin
+                }
+            });
+
+            if (error) throw error;
+            
+            // Si el registro fue exitoso
+            if (data.user) {
+                currentUser = data.user;
+                updateAuthUI(data.user);
+                
+                if (successEl) {
+                    successEl.textContent = '✓ Cuenta creada exitosamente. Ya puedes evaluar partidos.';
+                    successEl.style.display = 'block';
+                }
+                
+                // Esperar un momento para mostrar el mensaje
+                setTimeout(() => {
+                    showStatus('✓ Registro exitoso', 'success');
+                    showView('publicView');
+                    cargarPartidosPublicos();
+                }, 1500);
+            }
+        } catch (error) {
+            console.error('Signup error:', error);
+            if (errorEl) {
+                if (error.message.includes('already registered')) {
+                    errorEl.textContent = 'Este email ya está registrado. Usa el login o recupera tu contraseña.';
+                } else {
+                    errorEl.textContent = error.message || 'Error al crear la cuenta. Inténtalo de nuevo.';
+                }
+                errorEl.style.display = 'block';
+            }
+        }
+    }
+
     // Logout
     async function handleLogout() {
         try {
@@ -121,6 +205,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loginForm = document.getElementById('loginForm');
     if (loginForm) loginForm.addEventListener('submit', handleLogin);
     
+    const signupForm = document.getElementById('signupForm');
+    if (signupForm) signupForm.addEventListener('submit', handleSignup);
+    
     const btnLogin = document.getElementById('btnLogin');
     if (btnLogin) btnLogin.addEventListener('click', () => showView('loginView'));
     
@@ -137,6 +224,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnForgotPassword) btnForgotPassword.addEventListener('click', (e) => {
         e.preventDefault();
         handleForgotPassword();
+    });
+    
+    // Toggle entre login y registro
+    const btnShowSignup = document.getElementById('btnShowSignup');
+    if (btnShowSignup) btnShowSignup.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('loginFormContainer').style.display = 'none';
+        document.getElementById('signupFormContainer').style.display = 'block';
+    });
+    
+    const btnShowLogin = document.getElementById('btnShowLogin');
+    if (btnShowLogin) btnShowLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('signupFormContainer').style.display = 'none';
+        document.getElementById('loginFormContainer').style.display = 'block';
     });
 
     // Verificar autenticación al cargar

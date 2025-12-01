@@ -58,9 +58,10 @@
             <div id="publicEvalContent"></div>
         </div>
         
-        <!-- Vista de Login -->
+        <!-- Vista de Login/Registro -->
         <div id="loginView" class="view" style="display:none;max-width:500px;margin:3em auto;">
-            <div style="background:#fff;padding:2.5em;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
+            <!-- Formulario de Login -->
+            <div id="loginFormContainer" style="background:#fff;padding:2.5em;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
                 <h2 style="text-align:center;margin-bottom:1.5em;color:#1a2a3a;">Iniciar Sesión</h2>
                 <form id="loginForm">
                     <div class="form-field" style="margin-bottom:1.2em;">
@@ -77,8 +78,49 @@
                 <div style="text-align:center;margin-top:1.5em;">
                     <a href="#" id="btnForgotPassword" style="color:#4285f4;font-size:0.95em;text-decoration:none;">¿Olvidaste tu contraseña?</a>
                 </div>
+                <div style="text-align:center;margin-top:1em;padding-top:1em;border-top:1px solid #e0e6ef;">
+                    <span style="color:#718096;font-size:0.95em;">¿No tienes cuenta?</span>
+                    <a href="#" id="btnShowSignup" style="color:#4285f4;font-size:0.95em;font-weight:600;margin-left:0.5em;">Regístrate aquí</a>
+                </div>
                 <div style="text-align:center;margin-top:1em;">
                     <button id="btnBackToPublic" class="btn-secondary">← Volver a partidos</button>
+                </div>
+            </div>
+            
+            <!-- Formulario de Registro -->
+            <div id="signupFormContainer" style="display:none;background:#fff;padding:2.5em;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
+                <h2 style="text-align:center;margin-bottom:1.5em;color:#1a2a3a;">Crear Cuenta</h2>
+                <form id="signupForm">
+                    <div class="form-field" style="margin-bottom:1.2em;">
+                        <label for="signupNombre">Nombre completo</label>
+                        <input type="text" id="signupNombre" name="nombre" required placeholder="Tu nombre y apellidos" style="width:100%;padding:0.7em;border:1px solid #d0d7e2;border-radius:5px;font-size:1em;">
+                    </div>
+                    <div class="form-field" style="margin-bottom:1.2em;">
+                        <label for="signupClub">Club</label>
+                        <input type="text" id="signupClub" name="club" required placeholder="Tu club de voleibol" style="width:100%;padding:0.7em;border:1px solid #d0d7e2;border-radius:5px;font-size:1em;">
+                    </div>
+                    <div class="form-field" style="margin-bottom:1.2em;">
+                        <label for="signupEmail">Email</label>
+                        <input type="email" id="signupEmail" name="email" required placeholder="tu@email.com" style="width:100%;padding:0.7em;border:1px solid #d0d7e2;border-radius:5px;font-size:1em;">
+                    </div>
+                    <div class="form-field" style="margin-bottom:1.2em;">
+                        <label for="signupPassword">Contraseña</label>
+                        <input type="password" id="signupPassword" name="password" required placeholder="Mínimo 6 caracteres" style="width:100%;padding:0.7em;border:1px solid #d0d7e2;border-radius:5px;font-size:1em;">
+                    </div>
+                    <div class="form-field" style="margin-bottom:1.5em;">
+                        <label for="signupPasswordConfirm">Confirmar contraseña</label>
+                        <input type="password" id="signupPasswordConfirm" name="passwordConfirm" required placeholder="Repite la contraseña" style="width:100%;padding:0.7em;border:1px solid #d0d7e2;border-radius:5px;font-size:1em;">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width:100%;padding:0.8em;font-size:1.05em;">Crear Cuenta</button>
+                </form>
+                <div id="signupSuccess" style="display:none;margin-top:1em;padding:0.8em;background:#e8f5e9;border:1px solid #66bb6a;border-radius:5px;color:#2e7d32;font-size:0.95em;"></div>
+                <div id="signupError" style="display:none;margin-top:1em;padding:0.8em;background:#ffebee;border:1px solid #ef5350;border-radius:5px;color:#c62828;font-size:0.95em;"></div>
+                <div style="text-align:center;margin-top:1.5em;padding-top:1em;border-top:1px solid #e0e6ef;">
+                    <span style="color:#718096;font-size:0.95em;">¿Ya tienes cuenta?</span>
+                    <a href="#" id="btnShowLogin" style="color:#4285f4;font-size:0.95em;font-weight:600;margin-left:0.5em;">Inicia sesión</a>
+                </div>
+                <div style="text-align:center;margin-top:1em;">
+                    <button id="btnBackToPublic" class="btn-secondary" onclick="document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));document.getElementById('publicView').classList.remove('hidden');document.getElementById('publicView').style.display='';cargarPartidosPublicos();">← Volver a partidos</button>
                 </div>
             </div>
         </div>
