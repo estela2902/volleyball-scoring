@@ -720,14 +720,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             return 0;
         });
-        // Construir datos para Grid.js
+        // Mostrar la Edición y Grupo seleccionados por encima de la tabla (si existen)
+        const headerInfo = document.createElement('div');
+        headerInfo.className = 'matches-header-info';
+        headerInfo.style.marginBottom = '10px';
+        let headerHtml = '';
+        if (edicion) headerHtml += '<strong>Edición:</strong> ' + edicion + ' ';
+        if (grupo) headerHtml += '<strong>Grupo:</strong> ' + grupo + ' ';
+        if (headerHtml === '') headerHtml = '<em>Todas las ediciones y grupos</em>';
+        headerInfo.innerHTML = headerHtml;
+        if (publicMatchesList) publicMatchesList.appendChild(headerInfo);
+
+        // Construir datos para Grid.js (solo Fecha, Local, Visitante, Evaluación)
         const rows = filtrados.map(function(p) {
             return [
-                p['EdicionMostrar'] || '',
-                p['Grupo'] || '',
+                formatearFecha(p['Fecha'] || p['Fecha jornada']),
                 p['Local'] || '',
                 p['Visitante'] || '',
-                formatearFecha(p['Fecha'] || p['Fecha jornada']),
                 gridjs.html(gridEstadoEvaluacionHtml(p))
             ];
         });
@@ -746,12 +755,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         gridInstance = new gridjs.Grid({
             columns: [
-                { name: 'Edicion', width: '150px' },
-                { name: 'Grupo', width: '80px' },
-                { name: 'Local', width: '200px' },
-                { name: 'Visitante', width: '200px' },
-                { name: 'Fecha', width: '110px' },
-                { name: 'Estado Evaluación', width: '130px', sort: false }
+                { name: 'Fecha', width: '120px' },
+                { name: 'Local', width: '220px' },
+                { name: 'Visitante', width: '220px' },
+                { name: 'Evaluación', width: '120px', sort: false }
             ],
             data: rows,
             search: false,
