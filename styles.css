@@ -613,55 +613,6 @@ h1 {
     background: #fff;
 }
 
-#publicView .public-filters select#filtroEdicion {
-    min-width: 540px;
-    max-width: 840px;
-}
-
-#publicView .public-filters select#filtroGrupo,
-#filtroGrupo.choices__input, #filtroGrupo + .choices .choices__inner {
-    min-width: unset !important;
-    max-width: 260px !important;
-    width: 100% !important;
-}
-
-#publicView .public-filters .choices#filtroGrupo,
-#publicView .public-filters #filtroGrupo + .choices .choices__inner {
-    min-width: unset !important;
-    max-width: 260px !important;
-    width: 100% !important;
-}
-
-#publicView .public-filters input[type="text"]#filtroEquipoLocal {
-    min-width: 200px;
-    max-width: 260px;
-    border: 1px solid #d0d7e2;
-    border-radius: 5px;
-    font-size: 1em;
-    background: #fff;
-    padding: 0.5em 0.7em;
-    height: 40px;
-    margin-bottom: 0;
-    transition: border 0.2s;
-}
-
-#publicView .public-filters input[type="text"]#filtroEquipoLocal:focus {
-    border: 1.5px solid #1976d2;
-    outline: none;
-}
-
-#filtroEdicion.choices__input, #filtroEdicion + .choices .choices__inner {
-    min-width: 540px !important;
-    max-width: 840px !important;
-    width: 100% !important;
-}
-
-#publicView .public-filters .choices {
-    min-width: 540px !important;
-    max-width: 840px !important;
-    width: 100% !important;
-}
-
 /* Vistas */
 .view {
     margin-bottom: 20px;

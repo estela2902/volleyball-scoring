@@ -6,6 +6,12 @@ let __submittingEvaluation = false;
 const __submittingByMatch = new Map();
 let currentUser = null;
 
+// Función para verificar si el usuario es administrador
+function isAdmin(user) {
+    if (!user || !user.email) return false;
+    return user.email.toLowerCase() === 'estelagonzalez@fvbpa.com';
+}
+
 // Inicialización
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -36,18 +42,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btnLogout = document.getElementById('btnLogout');
         const userEmailEl = document.getElementById('userEmail');
         const authStatus = document.getElementById('authStatus');
+        const btnAdminPanel = document.getElementById('btnAdminPanel');
 
         if (user) {
             if (btnLogin) btnLogin.classList.add('hidden');
             if (btnLogout) btnLogout.classList.remove('hidden');
-            if (userEmailEl) userEmailEl.textContent = user.email || '';
+            if (userEmailEl) {
+                const rol = isAdmin(user) ? ' (Administrador)' : ' (Evaluador)';
+                userEmailEl.textContent = (user.email || '') + rol;
+            }
             if (authStatus) {
                 authStatus.textContent = '✓ Sesión activa';
                 authStatus.className = 'sync-status success';
             }
+            
+            // Mostrar botón de panel de administración solo para admin
+            if (btnAdminPanel) {
+                if (isAdmin(user)) {
+                    btnAdminPanel.style.display = '';
+                } else {
+                    btnAdminPanel.style.display = 'none';
+                }
+            }
         } else {
             if (btnLogin) btnLogin.classList.remove('hidden');
             if (btnLogout) btnLogout.classList.add('hidden');
+            if (btnAdminPanel) btnAdminPanel.style.display = 'none';
             if (userEmailEl) userEmailEl.textContent = '';
             if (authStatus) {
                 authStatus.textContent = '';
@@ -72,8 +92,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentUser = data.user;
             updateAuthUI(data.user);
             showStatus('✓ Inicio de sesión exitoso', 'success');
-            showView('publicView');
-            cargarPartidosPublicos();
+            
+            // Redirigir según el rol
+            if (isAdmin(data.user)) {
+                showView('adminView');
+            } else {
+                showView('publicView');
+                cargarPartidosPublicos();
+            }
         } catch (error) {
             console.error('Login error:', error);
             if (errorEl) {
@@ -143,13 +169,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 updateAuthUI(data.user);
                 
                 if (successEl) {
-                    successEl.textContent = '✓ Cuenta creada exitosamente. Ya puedes evaluar partidos.';
+                    successEl.textContent = '✓ Cuenta creada exitosamente con rol de Evaluador. Ya puedes evaluar partidos.';
                     successEl.style.display = 'block';
                 }
                 
                 // Esperar un momento para mostrar el mensaje
                 setTimeout(() => {
                     showStatus('✓ Registro exitoso', 'success');
+                    // Los nuevos usuarios siempre son evaluadores
                     showView('publicView');
                     cargarPartidosPublicos();
                 }, 1500);
@@ -210,6 +237,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     const btnLogin = document.getElementById('btnLogin');
     if (btnLogin) btnLogin.addEventListener('click', () => showView('loginView'));
+    
+    const btnAdminPanel = document.getElementById('btnAdminPanel');
+    if (btnAdminPanel) btnAdminPanel.addEventListener('click', () => {
+        if (currentUser && isAdmin(currentUser)) {
+            showView('adminView');
+        } else {
+            showStatus('⚠️ Acceso denegado: Solo administradores', 'error');
+        }
+    });
     
     const btnLogout = document.getElementById('btnLogout');
     if (btnLogout) btnLogout.addEventListener('click', handleLogout);
@@ -284,7 +320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const filtroEdicion = document.getElementById('filtroEdicion');
     const filtroGrupo = document.getElementById('filtroGrupo');
     const filtroEquipoLocal = document.getElementById('filtroEquipoLocal');
-    const filtroIdPartido = document.getElementById('filtroIdPartido');
+    const filtroEquipoVisitante = document.getElementById('filtroEquipoVisitante');
     const btnLimpiarFiltros = document.getElementById('btnLimpiarFiltros');
     const publicMatchesList = document.getElementById('publicMatchesList');
 
@@ -631,7 +667,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         let edicion = filtroEdicion.value;
         let grupo = filtroGrupo.value;
         let equipoLocal = filtroEquipoLocal.value.trim().toLowerCase();
-        let idPartidoFiltro = filtroIdPartido ? filtroIdPartido.value.trim().toUpperCase() : '';
+        let equipoVisitante = filtroEquipoVisitante ? filtroEquipoVisitante.value.trim().toLowerCase() : '';
         
         let filtrados = partidos.filter(p => {
             let ok = true;
@@ -647,14 +683,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (grupoPartido !== grupoFiltro) ok = false;
             }
             if (equipoLocal && (!p['Local'] || !p['Local'].toLowerCase().includes(equipoLocal))) ok = false;
-            if (idPartidoFiltro) {
-                const idPartido = String(p['idPartido'] || '').toUpperCase();
-                // Debug temporal
-                if (idPartidoFiltro === 'P-011335' || idPartidoFiltro.includes('11335')) {
-                    console.log('Comparando:', { idPartido, idPartidoFiltro, coincide: idPartido.includes(idPartidoFiltro) });
-                }
-                if (!idPartido.includes(idPartidoFiltro)) ok = false;
-            }
+            if (equipoVisitante && (!p['Visitante'] || !p['Visitante'].toLowerCase().includes(equipoVisitante))) ok = false;
             return ok;
         });
         
@@ -686,7 +715,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Construir datos para Grid.js
         const rows = filtrados.map(function(p) {
             return [
-                p['idPartido'] || '',
                 p['EdicionMostrar'] || '',
                 p['Grupo'] || '',
                 p['Local'] || '',
@@ -710,13 +738,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         gridInstance = new gridjs.Grid({
             columns: [
-                { name: 'ID Partido', width: '110px' },
                 { name: 'Edicion', width: '150px' },
                 { name: 'Grupo', width: '80px' },
-                { name: 'Local', width: '180px' },
-                { name: 'Visitante', width: '180px' },
+                { name: 'Local', width: '200px' },
+                { name: 'Visitante', width: '200px' },
                 { name: 'Fecha', width: '110px' },
-                { name: 'Estado Evaluación', width: '120px', sort: false }
+                { name: 'Estado Evaluación', width: '130px', sort: false }
             ],
             data: rows,
             search: false,
@@ -804,16 +831,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Eventos de filtros con Choices.js
-    if (filtroEdicion && filtroGrupo && filtroEquipoLocal && filtroIdPartido && btnLimpiarFiltros) {
+    if (filtroEdicion && filtroGrupo && filtroEquipoLocal && filtroEquipoVisitante && btnLimpiarFiltros) {
         filtroEdicion.addEventListener('change', () => debouncedCargarPartidosPublicos());
         filtroGrupo.addEventListener('change', () => debouncedCargarPartidosPublicos());
         filtroEquipoLocal.addEventListener('input', () => debouncedCargarPartidosPublicos());
-        filtroIdPartido.addEventListener('input', () => debouncedCargarPartidosPublicos());
+        filtroEquipoVisitante.addEventListener('input', () => debouncedCargarPartidosPublicos());
             btnLimpiarFiltros.addEventListener('click', () => {
             choicesEdicion.setChoiceByValue('');
             choicesGrupo.setChoiceByValue('');
             filtroEquipoLocal.value = '';
-            filtroIdPartido.value = '';
+            filtroEquipoVisitante.value = '';
             debouncedCargarPartidosPublicos();
         });
     }
@@ -1220,6 +1247,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function showView(viewId) {
+        // Proteger acceso a adminView
+        if (viewId === 'adminView' && (!currentUser || !isAdmin(currentUser))) {
+            showStatus('⚠️ Acceso denegado: Solo administradores pueden acceder al panel de administración', 'error');
+            showView('publicView');
+            cargarPartidosPublicos();
+            return;
+        }
+        
         document.querySelectorAll('.view').forEach(view => {
             view.classList.add('hidden');
             view.style.display = 'none';

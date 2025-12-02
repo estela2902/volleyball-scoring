@@ -21,7 +21,8 @@
             
             <!-- Controles de autenticación -->
             <div class="sync-controls">
-                <button id="btnIrPartidos" class="btn-sync">Ver Partidos Públicos</button>
+                <button id="btnIrPartidos" class="btn-sync">Ver Partidos</button>
+                <button id="btnAdminPanel" class="btn-sync" style="display:none;">⚙️ Panel de Administración</button>
                 <button id="btnLogin" class="btn-sync hidden">🔐 Iniciar Sesión</button>
                 <button id="btnLogout" class="btn-sync hidden">🚪 Cerrar Sesión</button>
                 <span id="authStatus" class="sync-status"></span>
@@ -43,12 +44,12 @@
         <!-- Vista Pública (usuarios no admin) -->
         <div id="publicView" class="view" style="display:none">
                 <h2>Listado de Partidos</h2>
-                <div class="public-filters" style="display:flex;gap:1em;flex-wrap:wrap;align-items:center;">
+                <div class="public-filters" style="display:grid;grid-template-columns:1fr 1fr;gap:1em;max-width:100%;">
                     <select id="filtroEdicion" placeholder="Edición"></select>
                     <select id="filtroGrupo" placeholder="Grupo"></select>
-                    <input type="text" id="filtroEquipoLocal" placeholder="Equipo Local..." style="min-width:180px;" />
-                    <input type="text" id="filtroIdPartido" placeholder="ID Partido (ej: P-011335)..." style="min-width:180px;" />
-                    <button id="btnLimpiarFiltros" class="btn-secondary">Limpiar filtros</button>
+                    <input type="text" id="filtroEquipoLocal" placeholder="Equipo Local..." style="width:100%;box-sizing:border-box;" />
+                    <input type="text" id="filtroEquipoVisitante" placeholder="Equipo Visitante..." style="width:100%;box-sizing:border-box;" />
+                    <button id="btnLimpiarFiltros" class="btn-secondary" style="grid-column:1 / -1;margin-top:0.5em;margin-bottom:0.5em">Limpiar filtros</button>
                 </div>
                 <div id="publicMatchesList" class="matches-list"></div>
         </div>
