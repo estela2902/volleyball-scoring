@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
     <!-- Grid.js para tabla moderna -->
     <link href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
+    <!-- jsPDF para generación de PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -21,12 +24,13 @@
             
             <!-- Controles de autenticación -->
             <div class="sync-controls">
-                <button id="btnIrPartidos" class="btn-sync">Ver Partidos</button>
-                <button id="btnAdminPanel" class="btn-sync" style="display:none;">⚙️ Panel de Administración</button>
                 <button id="btnLogin" class="btn-sync hidden">🔐 Iniciar Sesión</button>
                 <button id="btnLogout" class="btn-sync hidden">🚪 Cerrar Sesión</button>
+                <button id="btnIrPartidos" class="btn-sync">Ver Partidos</button>
+                <button id="btnAdminPanel" class="btn-sync" style="display:none;">⚙️ Panel de Administración</button>
                 <span id="authStatus" class="sync-status"></span>
                 <div id="userEmail" style="text-align:right;font-size:0.95rem;color:#333;margin-top:4px;"></div>
+                <h5>Para evaluar necesitas estar registrado</h5>
             </div>
         </header>
 
@@ -35,15 +39,52 @@
             <div class="admin-header">
                 <h2>Panel de Administración</h2>
             </div>
-            <div>
-                <button id="importExcelBtn" class="btn-secondary" style="font-size:1rem;">📥 Importar partidos desde Excel</button>
-                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none" />
+            
+            <!-- Pestañas de administración -->
+            <div class="admin-tabs">
+                <button id="tabImportarPartidos" class="admin-tab active">📥 Importar Partidos</button>
+                <button id="tabInformesPartidos" class="admin-tab">📄 Informes de Evaluaciones</button>
+                <button id="tabGestionUsuarios" class="admin-tab">👥 Gestión de Usuarios</button>
             </div>
-            <div id="excelPreviewDiv"></div>
+            
+            <!-- Tab: Importar Partidos -->
+            <div id="tabContentImportar" class="tab-content">
+                <div>
+                    <button id="importExcelBtn" class="btn-secondary" style="font-size:1rem;">📥 Importar partidos desde Excel</button>
+                    <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none" />
+                </div>
+                <div id="excelPreviewDiv"></div>
+            </div>
+            
+            <!-- Tab: Informes de Evaluaciones -->
+            <div id="tabContentInformes" class="tab-content" style="display:none;">
+                <div class="informes-header">
+                    <p class="info-text">Descarga informes en PDF con las evaluaciones de cada partido</p>
+                    <button id="btnRecargarInformes" class="btn-secondary">🔄 Recargar</button>
+                </div>
+                <div class="informes-filters" style="display:grid;grid-template-columns:1fr 1fr;gap:1em;margin-bottom:1.5em;">
+                    <select id="filtroEdicionInformes" placeholder="Edición"></select>
+                    <select id="filtroGrupoInformes" placeholder="Grupo"></select>
+                    <input type="text" id="filtroEquipoLocalInformes" placeholder="Equipo Local..." class="filter-input" />
+                    <input type="text" id="filtroEquipoVisitanteInformes" placeholder="Equipo Visitante..." class="filter-input" />
+                    <button id="btnLimpiarFiltrosInformes" class="btn-secondary" style="grid-column:1 / -1;">Limpiar filtros</button>
+                </div>
+                <div id="informesTableContainer"></div>
+            </div>
+            
+            <!-- Tab: Gestión de Usuarios -->
+            <div id="tabContentUsuarios" class="tab-content" style="display:none;">
+                <div class="usuarios-header">
+                    <p class="info-text">Gestiona los permisos de administrador de los usuarios registrados</p>
+                    <button id="btnRecargarUsuarios" class="btn-secondary">🔄 Recargar</button>
+                </div>
+                <div id="usuariosTableContainer"></div>
+            </div>
         </div>
         <!-- Vista Pública (usuarios no admin) -->
         <div id="publicView" class="view" style="display:none">
                 <h2>Listado de Partidos</h2>
+                <h5>Utiliza los filtros para facilitar la búsqueda de partidos</h5>
                 <div class="public-filters" style="display:grid;grid-template-columns:1fr 1fr;gap:1em;max-width:100%;">
                     <select id="filtroEdicion" placeholder="Edición"></select>
                     <select id="filtroGrupo" placeholder="Grupo"></select>

@@ -6,6 +6,14 @@ let __submittingEvaluation = false;
 const __submittingByMatch = new Map();
 let currentUser = null;
 
+// Detectar si estamos en localhost para usar tablas de desarrollo
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const TABLA_PARTIDOS = isLocalhost ? 'partidos_dev' : 'partidos';
+const TABLA_EVALUACIONES = isLocalhost ? 'evaluaciones_dev' : 'evaluaciones';
+
+console.log(`Modo: ${isLocalhost ? 'DESARROLLO (localhost)' : 'PRODUCCIÓN'}`);
+console.log(`Usando tablas: ${TABLA_PARTIDOS}, ${TABLA_EVALUACIONES}`);
+
 // Función para verificar si el usuario es administrador
 function isAdmin(user) {
     if (!user || !user.email) return false;
@@ -366,7 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 while (hasMore) {
                     let { data, error } = await supabase
-                        .from('partidos')
+                        .from(TABLA_PARTIDOS)
                         .select('*')
                         .range(from, from + pageSize - 1);
                     
@@ -1114,7 +1122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 console.log('Verificando existencia en Supabase para idpartido=', pid);
                 // No asumimos el nombre de columna en la DB (evita error 42703 si no existe idPartido)
-                let { data: allRows, error: errorSelectAll } = await supabase.from('partidos').select('*');
+                let { data: allRows, error: errorSelectAll } = await supabase.from(TABLA_PARTIDOS).select('*');
                 console.log('Respuesta supabase select *:', { count: allRows ? allRows.length : 0, error: errorSelectAll });
                 if (errorSelectAll) throw errorSelectAll;
                 // Buscar coincidencia por varios posibles nombres de campo
@@ -1132,13 +1140,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const keyName = existing.id ? 'id' : (existing.idpartido ? 'idpartido' : (existing.id_partido ? 'id_partido' : (existing.idPartido ? 'idPartido' : (existing.ID_PARTIDO ? 'ID_PARTIDO' : null))));
                     console.log('Actualizando partido en Supabase (clave=', keyName, '):', partido);
                     if (!keyName) throw new Error('No se pudo determinar la columna clave para actualizar el partido.');
-                    let { data: dataUpdate, error: errorUpdate } = await supabase.from('partidos').update(partido).eq(keyName, existing[keyName]).select();
+                    let { data: dataUpdate, error: errorUpdate } = await supabase.from(TABLA_PARTIDOS).update(partido).eq(keyName, existing[keyName]).select();
                     console.log('Respuesta update:', { dataUpdate, errorUpdate });
                     if (errorUpdate) throw errorUpdate;
                     updated++;
                 } else {
                     console.log('Insertando nuevo partido en Supabase:', partido);
-                    let { data: dataInsert, error: errorInsert } = await supabase.from('partidos').insert([partido]).select();
+                    let { data: dataInsert, error: errorInsert } = await supabase.from(TABLA_PARTIDOS).insert([partido]).select();
                     console.log('Respuesta insert:', { dataInsert, errorInsert });
                     if (errorInsert) throw errorInsert;
                     ok++;
@@ -1321,7 +1329,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
         
         try {
-            let { error } = await supabase.from('partidos').insert([matchData]);
+            let { error } = await supabase.from(TABLA_PARTIDOS).insert([matchData]);
             if (error) throw error;
             showStatus('✓ Partido guardado en la nube', 'success');
         } catch (error) {
@@ -1374,7 +1382,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
-            let { data, error } = await supabase.from('partidos').select('*');
+            let { data, error } = await supabase.from(TABLA_PARTIDOS).select('*');
             if (error) throw error;
             const mapped = (data || []).map(normalizeMatch).filter(Boolean);
             console.log('getMatches() supabase -> mapped sample:', mapped.length, mapped.slice(0,3));
@@ -1389,7 +1397,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function getEvaluations() {
         try {
-            let { data, error } = await supabase.from('evaluaciones').select('*');
+            let { data, error } = await supabase.from(TABLA_EVALUACIONES).select('*');
             if (error) throw error;
             return data;
         } catch (e) {
@@ -1675,7 +1683,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             rol: evaluationData.rol,
             puntuaciones: evaluationData.puntuaciones || {},
             totalpuntos: Number.isFinite(Number(evaluationData.totalPuntos)) ? parseInt(evaluationData.totalPuntos) : 0,
-            fechaenvio: evaluationData.fechaEnvio ? new Date(evaluationData.fechaEnvio).toISOString() : new Date().toISOString()
+            fechaenvio: evaluationData.fechaEnvio ? new Date(evaluationData.fechaEnvio).toISOString() : new Date().toISOString(),
+            created_by: currentUser && currentUser.id ? currentUser.id : null // Agregar trazabilidad del usuario
         };
         // Ensure we include the 'equipo' column (local/visitante) expected by the DB
         try {
@@ -1721,7 +1730,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             __submittingByMatch.set(lockKey, true);
 
-            const { data: existing, error: existErr } = await supabase.from('evaluaciones').select('*').eq('idpartido', payloadDb.idpartido).eq('equipo', payloadDb.equipo).limit(1);
+            const { data: existing, error: existErr } = await supabase.from(TABLA_EVALUACIONES).select('*').eq('idpartido', payloadDb.idpartido).eq('equipo', payloadDb.equipo).limit(1);
             if (existErr) {
                 console.warn('Could not check existing evaluation before insert:', existErr);
             } else if (existing && existing.length > 0) {
@@ -1738,7 +1747,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Helper to attempt insert and optionally retry removing unknown columns
         async function tryInsertEval(payload) {
             console.log('Attempting to insert evaluation payload to Supabase:', payload);
-            const { data: inserted, error } = await supabase.from('evaluaciones').insert([payload]).select();
+            const { data: inserted, error } = await supabase.from(TABLA_EVALUACIONES).insert([payload]).select();
             console.log('supabase insert evaluaciones ->', { inserted, error });
             if (!error) return { inserted };
 
@@ -1750,7 +1759,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.warn('Supabase insert error - unknown column detected:', col, ' - retrying without it');
                 const payload2 = Object.assign({}, payload);
                 delete payload2[col];
-                const { data: inserted2, error: error2 } = await supabase.from('evaluaciones').insert([payload2]).select();
+                const { data: inserted2, error: error2 } = await supabase.from(TABLA_EVALUACIONES).insert([payload2]).select();
                 console.log('supabase insert retry ->', { inserted2, error2 });
                 if (!error2) return { inserted: inserted2 };
                 return { error: error2 };
@@ -1805,14 +1814,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         setTimeout(() => {
             const submissionMsgEl4 = document.getElementById('submissionMessage'); if (submissionMsgEl4) submissionMsgEl4.classList.add('hidden');
-            showView('selectMatchView');
+            showView('publicView');
+            if (typeof cargarPartidosPublicos === 'function') {
+                cargarPartidosPublicos();
+            }
             loadAvailableMatches();
         }, 2000);
     }
 
     async function getEvaluationsForMatch(matchId) {
         try {
-            let { data, error } = await supabase.from('evaluaciones').select('*').eq('idpartido', matchId);
+            let { data, error } = await supabase.from(TABLA_EVALUACIONES).select('*').eq('idpartido', matchId);
             if (error) throw error;
             return data;
         } catch (e) {
@@ -1973,5 +1985,819 @@ document.addEventListener('DOMContentLoaded', async () => {
             hour: '2-digit',
             minute: '2-digit'
         });
+    }
+
+    // ========== GESTIÓN DE TABS EN PANEL DE ADMINISTRACIÓN ==========
+    const tabImportarPartidos = document.getElementById('tabImportarPartidos');
+    const tabInformesPartidos = document.getElementById('tabInformesPartidos');
+    const tabGestionUsuarios = document.getElementById('tabGestionUsuarios');
+    const tabContentImportar = document.getElementById('tabContentImportar');
+    const tabContentInformes = document.getElementById('tabContentInformes');
+    const tabContentUsuarios = document.getElementById('tabContentUsuarios');
+
+    function ocultarTodosLosTabs() {
+        tabContentImportar.style.display = 'none';
+        tabContentInformes.style.display = 'none';
+        if (tabContentUsuarios) tabContentUsuarios.style.display = 'none';
+        
+        tabImportarPartidos.classList.remove('active');
+        tabInformesPartidos.classList.remove('active');
+        if (tabGestionUsuarios) tabGestionUsuarios.classList.remove('active');
+    }
+
+    if (tabImportarPartidos) {
+        tabImportarPartidos.addEventListener('click', () => {
+            ocultarTodosLosTabs();
+            tabImportarPartidos.classList.add('active');
+            tabContentImportar.style.display = '';
+        });
+    }
+
+    if (tabInformesPartidos) {
+        tabInformesPartidos.addEventListener('click', () => {
+            ocultarTodosLosTabs();
+            tabInformesPartidos.classList.add('active');
+            tabContentInformes.style.display = '';
+            cargarInformesPartidos();
+        });
+    }
+
+    if (tabGestionUsuarios) {
+        tabGestionUsuarios.addEventListener('click', () => {
+            ocultarTodosLosTabs();
+            tabGestionUsuarios.classList.add('active');
+            tabContentUsuarios.style.display = '';
+            cargarGestionUsuarios();
+        });
+    }
+
+    // ========== INFORMES DE EVALUACIONES ==========
+
+    const btnRecargarInformes = document.getElementById('btnRecargarInformes');
+    const filtroEdicionInformes = document.getElementById('filtroEdicionInformes');
+    const filtroGrupoInformes = document.getElementById('filtroGrupoInformes');
+    const filtroEquipoLocalInformes = document.getElementById('filtroEquipoLocalInformes');
+    const filtroEquipoVisitanteInformes = document.getElementById('filtroEquipoVisitanteInformes');
+    const btnLimpiarFiltrosInformes = document.getElementById('btnLimpiarFiltrosInformes');
+
+    let choicesEdicionInformes, choicesGrupoInformes;
+
+    if (filtroEdicionInformes && filtroGrupoInformes) {
+        choicesEdicionInformes = new Choices(filtroEdicionInformes, { searchEnabled: true, itemSelectText: '', shouldSort: false, placeholder: true, placeholderValue: 'Todas las Ediciones' });
+        choicesGrupoInformes = new Choices(filtroGrupoInformes, { searchEnabled: true, itemSelectText: '', shouldSort: false, placeholder: true, placeholderValue: 'Todos los Grupos' });
+    }
+
+    if (btnRecargarInformes) {
+        btnRecargarInformes.addEventListener('click', cargarInformesPartidos);
+    }
+
+    if (filtroEdicionInformes) filtroEdicionInformes.addEventListener('change', cargarInformesPartidos);
+    if (filtroGrupoInformes) filtroGrupoInformes.addEventListener('change', cargarInformesPartidos);
+    if (filtroEquipoLocalInformes) filtroEquipoLocalInformes.addEventListener('input', cargarInformesPartidos);
+    if (filtroEquipoVisitanteInformes) filtroEquipoVisitanteInformes.addEventListener('input', cargarInformesPartidos);
+
+    if (btnLimpiarFiltrosInformes) {
+        btnLimpiarFiltrosInformes.addEventListener('click', () => {
+            if (choicesEdicionInformes) choicesEdicionInformes.setChoiceByValue('');
+            if (choicesGrupoInformes) choicesGrupoInformes.setChoiceByValue('');
+            if (filtroEquipoLocalInformes) filtroEquipoLocalInformes.value = '';
+            if (filtroEquipoVisitanteInformes) filtroEquipoVisitanteInformes.value = '';
+            cargarInformesPartidos();
+        });
+    }
+
+    async function cargarInformesPartidos() {
+        const container = document.getElementById('informesTableContainer');
+        if (!container) return;
+
+        container.innerHTML = '<p style="text-align:center;padding:2em;color:#666;">Cargando partidos...</p>';
+
+        try {
+            // Usar la misma lógica de paginación que cargarPartidosPublicos
+            let allPartidos = [];
+            let from = 0;
+            const pageSize = 1000;
+            let hasMore = true;
+            
+            while (hasMore) {
+                let { data, error } = await supabase
+                    .from(TABLA_PARTIDOS)
+                    .select('*')
+                    .range(from, from + pageSize - 1);
+                
+                if (error) {
+                    console.error('Error loading partidos from Supabase:', error);
+                    throw error;
+                }
+                
+                if (data && data.length > 0) {
+                    allPartidos = allPartidos.concat(data);
+                    from += pageSize;
+                    hasMore = data.length === pageSize;
+                } else {
+                    hasMore = false;
+                }
+            }
+            
+            // Ordenar partidos por fecha de menor a mayor
+            const partidos = allPartidos.sort((a, b) => {
+                const fechaA = a.fecha || a.fechajornada || '';
+                const fechaB = b.fecha || b.fechajornada || '';
+                return fechaA.localeCompare(fechaB);
+            });
+            console.log('cargarInformesPartidos: loaded', partidos.length, 'partidos');
+
+            if (!partidos || partidos.length === 0) {
+                container.innerHTML = '<p style="text-align:center;padding:2em;color:#666;">No hay partidos registrados.</p>';
+                return;
+            }
+
+            // Consultar todas las evaluaciones con la misma lógica de paginación
+            let allEvaluaciones = [];
+            from = 0;
+            hasMore = true;
+            
+            while (hasMore) {
+                let { data, error } = await supabase
+                    .from(TABLA_EVALUACIONES)
+                    .select('*')
+                    .range(from, from + pageSize - 1);
+                
+                if (error) {
+                    console.error('Error loading evaluaciones from Supabase:', error);
+                    throw error;
+                }
+                
+                if (data && data.length > 0) {
+                    allEvaluaciones = allEvaluaciones.concat(data);
+                    from += pageSize;
+                    hasMore = data.length === pageSize;
+                } else {
+                    hasMore = false;
+                }
+            }
+            
+            const evaluaciones = allEvaluaciones;
+            console.log('cargarInformesPartidos: loaded', evaluaciones.length, 'evaluaciones');
+
+            // Organizar evaluaciones por partido
+            const evalPorPartido = {};
+            if (evaluaciones) {
+                evaluaciones.forEach(ev => {
+                    const partidoId = ev.idpartido || ev.partido_id || ev.matchId;
+                    const equipoTipo = ev.equipo || ev.tipo_equipo;
+                    
+                    if (!partidoId) return;
+                    
+                    if (!evalPorPartido[partidoId]) {
+                        evalPorPartido[partidoId] = {};
+                    }
+                    evalPorPartido[partidoId][equipoTipo] = ev;
+                });
+            }
+
+            // Obtener valores actuales de los filtros ANTES de repoblarlos
+            const edicionFiltro = filtroEdicionInformes ? filtroEdicionInformes.value : '';
+            const grupoFiltro = filtroGrupoInformes ? filtroGrupoInformes.value : '';
+            const localFiltro = filtroEquipoLocalInformes ? filtroEquipoLocalInformes.value.trim().toLowerCase() : '';
+            const visitanteFiltro = filtroEquipoVisitanteInformes ? filtroEquipoVisitanteInformes.value.trim().toLowerCase() : '';
+
+            // Poblar filtros con valores únicos solo la primera vez
+            const ediciones = [...new Set(partidos.map(p => p.edicion).filter(Boolean))].sort();
+            const grupos = [...new Set(partidos.map(p => p.grupoedicion).filter(Boolean))].sort();
+
+            if (choicesEdicionInformes && choicesEdicionInformes._store.choices.length <= 1) {
+                choicesEdicionInformes.clearStore();
+                choicesEdicionInformes.setChoices([
+                    { value: '', label: 'Todas las Ediciones' },
+                    ...ediciones.map(e => ({ value: e, label: e }))
+                ], 'value', 'label', true);
+                if (edicionFiltro) {
+                    choicesEdicionInformes.setChoiceByValue(edicionFiltro);
+                }
+            }
+
+            if (choicesGrupoInformes && choicesGrupoInformes._store.choices.length <= 1) {
+                choicesGrupoInformes.clearStore();
+                choicesGrupoInformes.setChoices([
+                    { value: '', label: 'Todos los Grupos' },
+                    ...grupos.map(g => ({ value: g, label: g }))
+                ], 'value', 'label', true);
+                if (grupoFiltro) {
+                    choicesGrupoInformes.setChoiceByValue(grupoFiltro);
+                }
+            }
+
+            const partidosFiltrados = partidos.filter(partido => {
+                if (edicionFiltro && partido.edicion !== edicionFiltro) return false;
+                if (grupoFiltro && partido.grupoedicion !== grupoFiltro) return false;
+                if (localFiltro && (!partido.local || !partido.local.toLowerCase().includes(localFiltro))) return false;
+                if (visitanteFiltro && (!partido.visitante || !partido.visitante.toLowerCase().includes(visitanteFiltro))) return false;
+                return true;
+            });
+
+            // Generar tabla
+            let html = '<table class="informes-table">';
+            html += '<thead><tr>';
+            html += '<th>Fecha</th>';
+            html += '<th>Edición</th>';
+            html += '<th>Grupo</th>';
+            html += '<th>Equipo Local</th>';
+            html += '<th>Equipo Visitante</th>';
+            html += '<th>Eval. Local</th>';
+            html += '<th>Eval. Visitante</th>';
+            html += '<th>Acción</th>';
+            html += '</tr></thead>';
+            html += '<tbody>';
+
+            partidosFiltrados.forEach(partido => {
+                const partidoId = partido.idpartido || partido.id;
+                const evals = evalPorPartido[partidoId] || {};
+                const hasEvalLocal = !!evals.local;
+                const hasEvalVisitante = !!evals.visitante;
+                const canGeneratePDF = hasEvalLocal && hasEvalVisitante;
+
+                // Extraer solo lo que está después del guion en la edición
+                let edicionCorta = partido.edicion || '-';
+                if (edicionCorta.includes('-')) {
+                    edicionCorta = edicionCorta.split('-')[1].trim();
+                }
+
+                // Quitar la palabra "Grupo" del valor del grupo
+                let grupoCorto = partido.grupoedicion || '-';
+                if (grupoCorto !== '-') {
+                    grupoCorto = grupoCorto.replace(/^Grupo\s*/i, '');
+                }
+
+                // Formatear fecha a dd/mm/yyyy
+                let fechaFormateada = '-';
+                const fechaRaw = partido.fecha || partido.fechajornada;
+                if (fechaRaw) {
+                    try {
+                        const fecha = new Date(fechaRaw + 'T00:00:00');
+                        if (!isNaN(fecha.getTime())) {
+                            const dia = String(fecha.getDate()).padStart(2, '0');
+                            const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+                            const anio = fecha.getFullYear();
+                            fechaFormateada = `${dia}/${mes}/${anio}`;
+                        } else {
+                            fechaFormateada = fechaRaw;
+                        }
+                    } catch (e) {
+                        fechaFormateada = fechaRaw;
+                    }
+                }
+
+                html += '<tr>';
+                html += `<td>${fechaFormateada}</td>`;
+                html += `<td>${edicionCorta}</td>`;
+                html += `<td>${grupoCorto}</td>`;
+                html += `<td>${partido.local || 'undefined'}</td>`;
+                html += `<td>${partido.visitante || 'undefined'}</td>`;
+                html += `<td><span class="eval-status ${hasEvalLocal ? 'eval-completed' : 'eval-pending'}">${hasEvalLocal ? '✓ Completada' : '⏳ Pendiente'}</span></td>`;
+                html += `<td><span class="eval-status ${hasEvalVisitante ? 'eval-completed' : 'eval-pending'}">${hasEvalVisitante ? '✓ Completada' : '⏳ Pendiente'}</span></td>`;
+                html += '<td>';
+                if (canGeneratePDF) {
+                    html += `<button class="btn-pdf" onclick="generarPDFPartido('${partidoId}')">📄 Generar PDF</button>`;
+                } else {
+                    html += '<span class="text-muted">Evaluaciones incompletas</span>';
+                }
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            
+            if (partidosFiltrados.length === 0) {
+                container.innerHTML = '<p style="text-align:center;padding:2em;color:#666;">No se encontraron partidos con los filtros aplicados.</p>';
+            } else {
+                container.innerHTML = html;
+            }
+
+        } catch (error) {
+            console.error('Error al cargar informes:', error);
+            container.innerHTML = '<p style="text-align:center;padding:2em;color:#d32f2f;">Error al cargar los informes. Por favor, intenta de nuevo.</p>';
+        }
+    }
+
+    // Hacer la función global para que pueda ser llamada desde los botones
+    window.generarPDFPartido = async function(partidoId) {
+        try {
+            // Obtener datos del partido
+            const { data: partido, error: errorPartido } = await supabase
+                .from(TABLA_PARTIDOS)
+                .select('*')
+                .eq('idpartido', partidoId)
+                .single();
+
+            if (errorPartido) throw errorPartido;
+
+            // Obtener evaluaciones
+            const { data: evaluaciones, error: errorEval } = await supabase
+                .from(TABLA_EVALUACIONES)
+                .select('*')
+                .eq('idpartido', partidoId);
+
+            if (errorEval) throw errorEval;
+
+            if (!evaluaciones || evaluaciones.length !== 2) {
+                alert('No se encontraron ambas evaluaciones para este partido.');
+                return;
+            }
+
+            const evalLocal = evaluaciones.find(e => e.equipo === 'local');
+            const evalVisitante = evaluaciones.find(e => e.equipo === 'visitante');
+
+            if (!evalLocal || !evalVisitante) {
+                alert('Faltan evaluaciones para generar el PDF.');
+                return;
+            }
+
+            // Generar PDF
+            generarPDF(partido, evalLocal, evalVisitante);
+
+        } catch (error) {
+            console.error('Error al generar PDF:', error);
+            alert('Error al generar el PDF. Por favor, intenta de nuevo.');
+        }
+    };
+
+    async function generarPDF(partido, evalLocal, evalVisitante) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Cargar logos como imágenes
+        const logoDeporte = new Image();
+        const logoJuegos = new Image();
+        
+        logoDeporte.src = 'public/Img Deporte Asturiano.png';
+        logoJuegos.src = 'public/Img JuegosDeportivos.jfif';
+
+        // Esperar a que se carguen las imágenes
+        await Promise.all([
+            new Promise(resolve => { logoDeporte.onload = resolve; logoDeporte.onerror = resolve; }),
+            new Promise(resolve => { logoJuegos.onload = resolve; logoJuegos.onerror = resolve; })
+        ]);
+
+        const colorBorde = [0, 0, 0];
+        const colorTexto = [0, 0, 0];
+
+        // Logos en cabecera
+        try {
+            doc.addImage(logoDeporte, 'PNG', 15, 10, 15, 15);
+        } catch (e) { console.warn('Error al cargar logo deporte:', e); }
+        
+        try {
+            doc.addImage(logoJuegos, 'JPEG', 180, 10, 25, 15);
+        } catch (e) { console.warn('Error al cargar logo juegos:', e); }
+
+        // Título
+        doc.setTextColor(...colorTexto);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ACTA DE CALIFICACIÓN', 110, 15, { align: 'center' });
+        doc.text('JUEGOS DEPORTIVOS DEL PRINCIPADO DE ASTURIAS', 110, 22, { align: 'center' });
+
+        // Información del partido (parte superior)
+        let yPos = 32;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        
+        // Modalidad deportiva
+        doc.text('MODALIDAD DEPORTIVA:', 15, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text('VOLEIBOL', 60, yPos);
+        
+        // Categoría
+        let edicorta = partido.edicion ? partido.edicion.split('-').pop().trim().replace(/\s+/g, ' ') : 'Sin_Edicion';
+        doc.setFont('helvetica', 'bold');
+        doc.text('CATEGORÍA:', 110, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(edicorta || '-', 135, yPos);
+        
+        yPos += 5;
+        
+        // Lugar del encuentro
+        doc.setFont('helvetica', 'bold');
+        doc.text('LUGAR DEL ENCUENTRO:', 15, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(partido.campo || '-', 60, yPos);
+        
+        // Fecha
+        doc.setFont('helvetica', 'bold');
+        doc.text('FECHA:', 110, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.text(formatDate(partido.fecha || partido.fechajornada), 125, yPos);
+
+        // Línea separadora
+        yPos += 8;
+        doc.setDrawColor(...colorBorde);
+        doc.line(15, yPos, 195, yPos);
+
+        // Columnas de evaluación
+        yPos += 8;
+        const colIzq = 15;
+        const colDer = 107;
+        const anchoCol = 88;
+
+        // Función auxiliar para dibujar una columna de evaluación
+        function dibujarColumnaEval(xStart, equipo, evaluacion, esLocal) {
+            let y = yPos;
+            
+            // Encabezado con nombre del equipo
+            doc.setFillColor(240, 240, 240);
+            doc.rect(xStart, y, anchoCol, 7, 'F');
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.text('DENOMINACIÓN DE EQUIPO O DEPORTISTA', xStart + anchoCol / 2, y + 4.5, { align: 'center' });
+            
+            y += 7;
+            doc.setFillColor(255, 255, 255);
+            doc.rect(xStart, y, anchoCol, 7, 'S');
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            // Limitar texto del equipo si es muy largo
+            const equipoTexto = (equipo || 'undefined').substring(0, 35);
+            doc.text(equipoTexto, xStart + anchoCol / 2, y + 4.5, { align: 'center' });
+            
+            y += 7;
+            
+            // Resultado
+            doc.setFillColor(240, 240, 240);
+            doc.rect(xStart, y, anchoCol - 15, 5, 'F');
+            doc.rect(xStart + anchoCol - 15, y, 15, 5, 'F');
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'bold');
+            
+            y += 5;
+
+            const puntos = evaluacion.puntuaciones || {};
+            
+            // 1. ENTRENADOR/A CONTRARIO/A
+            doc.setFillColor(255, 255, 255);
+            doc.rect(xStart, y, anchoCol, 42, 'S');
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.text('1. ENTRENADOR/A CONTRARIO/A', xStart + 2, y + 4);
+            
+            doc.setFontSize(6.5);
+            const opcionesEntrenador = [
+                ["0: Conducta antideportiva (protestas constantes, faltas de respeto,", "     incitación a la tensión)."],
+                ["1: Actitud negativa frecuente, poco colaborativa.", ""],
+                ["2: Actitud correcta en general, aunque con momentos de tensión.", ""],
+                ["3: Actitud positiva, respeta las decisiones arbitrales y fomenta", "     el juego limpio."],
+                ["4: Ejemplo de deportividad: colaboración, respeto total, facilita", "     el desarrollo del partido."]
+            ];
+            
+            let yTexto = y + 9;
+            opcionesEntrenador.forEach((lineas, idx) => {
+                const seleccionado = puntos.entrenador === idx;
+                doc.setFont('helvetica', seleccionado ? 'bold' : 'normal');
+                doc.text(lineas[0], xStart + 2, yTexto);
+                if (lineas[1]) doc.text(lineas[1], xStart + 2, yTexto + 3.5);
+                doc.setFont('helvetica', 'bold');
+                if (seleccionado) doc.text(String(idx), xStart + anchoCol - 4, yTexto);
+                doc.setFont('helvetica', 'normal');
+                yTexto += 7;
+            });
+            
+            y += 42;
+            
+            // 2. DEPORTISTAS EQUIPO CONTRARIO
+            doc.rect(xStart, y, anchoCol, 42, 'S');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.text('2. DEPORTISTAS EQUIPO CONTRARIO', xStart + 2, y + 4);
+            
+            doc.setFontSize(6.5);
+            const opcionesDeportistas = [
+                ["0: Conducta violenta o antideportiva reiterada.", ""],
+                ["1: Incidentes frecuentes (provocaciones, malas actitudes, protestas", "     al árbitro/a)."],
+                ["2: Comportamiento aceptable con algunas acciones negativas aisladas.", ""],
+                ["3: Buen comportamiento, respeto entre rivales, pocas incidencias.", ""],
+                ["4: Ejemplo de juego limpio: cooperación, respeto total a compañeros/as,", "     rivales y árbitro."]
+            ];
+            
+            yTexto = y + 9;
+            opcionesDeportistas.forEach((lineas, idx) => {
+                const seleccionado = puntos.deportistas === idx;
+                doc.setFont('helvetica', seleccionado ? 'bold' : 'normal');
+                doc.text(lineas[0], xStart + 2, yTexto);
+                if (lineas[1]) doc.text(lineas[1], xStart + 2, yTexto + 3.5);
+                doc.setFont('helvetica', 'bold');
+                if (seleccionado) doc.text(String(idx), xStart + anchoCol - 4, yTexto);
+                doc.setFont('helvetica', 'normal');
+                yTexto += 7;
+            });
+            
+            y += 42;
+            
+            // 3. ÁRBITRO/A
+            doc.rect(xStart, y, anchoCol, 42, 'S');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.text('3. ÁRBITRO/A', xStart + 2, y + 4);
+            
+            doc.setFontSize(6.5);
+            const opcionesArbitro = [
+                ["0: Parcialidad clara, falta de control del partido.", ""],
+                ["1: Errores graves o repetidos, actitud poco dialogante.", ""],
+                ["2: Actuación correcta con errores puntuales.", ""],
+                ["3: Buen arbitraje, comunicación clara, mantiene el control.", ""],
+                ["4: Excelente: imparcial, firme, dialogante y respetuoso/a.", ""]
+            ];
+            
+            yTexto = y + 9;
+            opcionesArbitro.forEach((lineas, idx) => {
+                const seleccionado = puntos.arbitro === idx;
+                doc.setFont('helvetica', seleccionado ? 'bold' : 'normal');
+                doc.text(lineas[0], xStart + 2, yTexto);
+                if (lineas[1]) doc.text(lineas[1], xStart + 2, yTexto + 3.5);
+                doc.setFont('helvetica', 'bold');
+                if (seleccionado) doc.text(String(idx), xStart + anchoCol - 4, yTexto);
+                doc.setFont('helvetica', 'normal');
+                yTexto += 7;
+            });
+            
+            y += 42;
+            
+            // 4. CONDUCTA DE LA AFICIÓN
+            doc.rect(xStart, y, anchoCol, 42, 'S');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.text('4. CONDUCTA DE LA AFICIÓN', xStart + 2, y + 4);
+            
+            doc.setFontSize(6.5);
+            const opcionesAficion = [
+                ["0: Conducta inaceptable (insultos, agresiones verbales o físicas,", "     violencia)."],
+                ["1: Comportamiento negativo frecuente (protestas continuas,", "     ambiente hostil)."],
+                ["2: Conducta aceptable, aunque con momentos de tensión.", ""],
+                ["3: Buena actitud, apoyo mayormente positivo.", ""],
+                ["4: Ejemplo de deportividad: ánimos constantes, respeto al rival", "     y árbitro/a."]
+            ];
+            
+            yTexto = y + 9;
+            opcionesAficion.forEach((lineas, idx) => {
+                const seleccionado = puntos.aficion === idx;
+                doc.setFont('helvetica', seleccionado ? 'bold' : 'normal');
+                doc.text(lineas[0], xStart + 2, yTexto);
+                if (lineas[1]) doc.text(lineas[1], xStart + 2, yTexto + 3.5);
+                doc.setFont('helvetica', 'bold');
+                if (seleccionado) doc.text(String(idx), xStart + anchoCol - 4, yTexto);
+                doc.setFont('helvetica', 'normal');
+                yTexto += 7;
+            });
+            
+            y += 42;
+            
+            // TOTAL PUNTOS
+            doc.setFillColor(240, 240, 240);
+            doc.rect(xStart, y, anchoCol - 15, 7, 'FD');
+            doc.rect(xStart + anchoCol - 15, y, 15, 7, 'FD');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.text('TOTAL PUNTOS', xStart + (anchoCol - 15) / 2, y + 4.5, { align: 'center' });
+            doc.text(String(evaluacion.totalpuntos || 0), xStart + anchoCol - 7.5, y + 4.5, { align: 'center' });
+            
+            y += 15;
+            
+            // Firma
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.text('Firma:', xStart + 2, y);
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(7);
+            const nombreEvaluador = (evaluacion.evaluador || '-').substring(0, 30);
+            doc.text(nombreEvaluador, xStart + 2, y + 4);
+        }
+
+        // Dibujar columna izquierda (Equipo Local - evaluado por equipo visitante)
+        dibujarColumnaEval(colIzq, partido.local, evalLocal, true);
+        
+        // Dibujar columna derecha (Equipo Visitante - evaluado por equipo local)
+        dibujarColumnaEval(colDer, partido.visitante, evalVisitante, false);
+
+        // Guardar PDF con formato: Acta_edicion_local_visitante
+        const edicionCorta = partido.edicion ? partido.edicion.split('-').pop().trim().replace(/\s+/g, '_') : 'Sin_Edicion';
+        const localLimpio = (partido.local || 'Local').replace(/\s+/g, '_').substring(0, 30);
+        const visitanteLimpio = (partido.visitante || 'Visitante').replace(/\s+/g, '_').substring(0, 30);
+        const nombreArchivo = `Acta_${edicionCorta}_${localLimpio}_${visitanteLimpio}.pdf`;
+        doc.save(nombreArchivo);
+    }
+
+    // ========== GESTIÓN DE USUARIOS ==========
+    
+    const btnRecargarUsuarios = document.getElementById('btnRecargarUsuarios');
+    if (btnRecargarUsuarios) {
+        btnRecargarUsuarios.addEventListener('click', cargarGestionUsuarios);
+    }
+
+    async function cargarGestionUsuarios() {
+        const container = document.getElementById('usuariosTableContainer');
+        if (!container) return;
+
+        container.innerHTML = '<p style="text-align:center;padding:2em;color:#666;">Cargando usuarios...</p>';
+
+        try {
+            // Obtener todos los usuarios de auth.users mediante una función de Supabase
+            // Nota: Por seguridad, necesitaremos crear una función RPC en Supabase
+            const { data: usuarios, error } = await supabase.rpc('get_all_users');
+
+            if (error) {
+                console.error('Error completo al cargar usuarios:', error);
+                console.error('Error message:', error.message);
+                console.error('Error code:', error.code);
+                console.error('Error details:', error.details);
+                
+                container.innerHTML = `
+                    <div style="padding:2em;text-align:center;">
+                        <p style="color:#d32f2f;margin-bottom:1em;">⚠️ Error al cargar usuarios</p>
+                        <p style="color:#666;font-size:0.9em;margin-bottom:0.5em;"><strong>Error:</strong> ${error.message || 'Error desconocido'}</p>
+                        ${error.details ? `<p style="color:#666;font-size:0.85em;margin-bottom:1em;">${error.details}</p>` : ''}
+                        <p style="color:#666;font-size:0.9em;">Posibles soluciones:</p>
+                        <ul style="text-align:left;max-width:500px;margin:1em auto;color:#666;font-size:0.9em;">
+                            <li>Verifica que la función RPC <code>get_all_users()</code> existe en Supabase</li>
+                            <li>Verifica que los permisos están correctamente configurados</li>
+                            <li>Asegúrate de estar conectado como administrador</li>
+                        </ul>
+                        <details style="margin-top:1em;text-align:left;max-width:600px;margin-left:auto;margin-right:auto;">
+                            <summary style="cursor:pointer;color:#4385bd;font-weight:600;">Ver instrucciones de configuración</summary>
+                            <pre style="background:#f5f5f5;padding:1em;border-radius:4px;overflow-x:auto;margin-top:1em;font-size:0.85em;">
+-- Ejecutar en el SQL Editor de Supabase:
+
+CREATE OR REPLACE FUNCTION get_all_users()
+RETURNS TABLE (
+    id UUID,
+    email TEXT,
+    created_at TIMESTAMPTZ,
+    es_admin BOOLEAN
+) 
+SECURITY DEFINER
+AS $$
+BEGIN
+    -- Verificar que el usuario actual es admin
+    IF NOT EXISTS (
+        SELECT 1 FROM auth.users 
+        WHERE auth.users.id = auth.uid() 
+        AND (
+            auth.users.email = 'estelagonzalez@fvbpa.com'
+            OR auth.users.raw_user_meta_data->>'es_admin' = 'true'
+        )
+    ) THEN
+        RAISE EXCEPTION 'No autorizado';
+    END IF;
+
+    RETURN QUERY
+    SELECT 
+        auth.users.id,
+        auth.users.email,
+        auth.users.created_at,
+        COALESCE((auth.users.raw_user_meta_data->>'es_admin')::boolean, false) as es_admin
+    FROM auth.users
+    ORDER BY auth.users.created_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+                            </pre>
+                        </details>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!usuarios || usuarios.length === 0) {
+                container.innerHTML = '<p style="text-align:center;padding:2em;color:#666;">No hay usuarios registrados.</p>';
+                return;
+            }
+
+            // Generar tabla
+            let html = '<table class="usuarios-table">';
+            html += '<thead><tr>';
+            html += '<th>Email</th>';
+            html += '<th>Fecha de Registro</th>';
+            html += '<th>Rol</th>';
+            html += '<th>Acción</th>';
+            html += '</tr></thead>';
+            html += '<tbody>';
+
+            usuarios.forEach(usuario => {
+                const esAdmin = usuario.es_admin || usuario.email === 'estelagonzalez@fvbpa.com';
+                const esSuperAdmin = usuario.email === 'estelagonzalez@fvbpa.com';
+                const fechaRegistro = new Date(usuario.created_at).toLocaleDateString('es-ES');
+
+                html += '<tr>';
+                html += `<td>${usuario.email}</td>`;
+                html += `<td>${fechaRegistro}</td>`;
+                html += `<td><span class="rol-badge ${esAdmin ? 'rol-admin' : 'rol-evaluador'}">${esAdmin ? '👑 Administrador' : '📝 Evaluador'}</span></td>`;
+                html += '<td style="display:flex;gap:8px;align-items:center;">';
+                
+                if (esSuperAdmin) {
+                    html += '<span class="text-muted">Super Admin (no modificable)</span>';
+                } else {
+                    if (esAdmin) {
+                        html += `<button class="btn-accion btn-quitar-admin" onclick="cambiarRolUsuario('${usuario.id}', false)">❌ Quitar Admin</button>`;
+                    } else {
+                        html += `<button class="btn-accion btn-hacer-admin" onclick="cambiarRolUsuario('${usuario.id}', true)">✅ Hacer Admin</button>`;
+                    }
+                    html += `<button class="btn-accion btn-eliminar" onclick="eliminarUsuario('${usuario.id}', '${usuario.email}')">🗑️ Eliminar</button>`;
+                }
+                
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+
+        } catch (error) {
+            console.error('Error al cargar usuarios:', error);
+            container.innerHTML = '<p style="text-align:center;padding:2em;color:#d32f2f;">Error al cargar los usuarios. Por favor, intenta de nuevo.</p>';
+        }
+    }
+
+    // Hacer la función global para que pueda ser llamada desde los botones
+    window.cambiarRolUsuario = async function(userId, esAdmin) {
+        if (!confirm(`¿Estás seguro de ${esAdmin ? 'otorgar' : 'quitar'} permisos de administrador a este usuario?`)) {
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase.rpc('update_user_admin_status', {
+                user_id: userId,
+                is_admin: esAdmin
+            });
+
+            if (error) {
+                console.error('Error al actualizar rol:', error);
+                
+                if (error.message.includes('does not exist')) {
+                    alert('⚠️ Es necesario crear la función RPC en Supabase. Revisa las instrucciones en la pantalla de gestión de usuarios.');
+                } else {
+                    alert('Error al actualizar el rol del usuario. Por favor, intenta de nuevo.');
+                }
+                return;
+            }
+
+            showStatus(`✓ Rol actualizado correctamente`, 'success');
+            cargarGestionUsuarios(); // Recargar la lista
+
+        } catch (error) {
+            console.error('Error al cambiar rol:', error);
+            alert('Error al actualizar el rol del usuario.');
+        }
+    };
+
+    // Función para eliminar un usuario
+    window.eliminarUsuario = async function(userId, userEmail) {
+        if (!confirm(`⚠️ ¿Estás seguro de eliminar al usuario ${userEmail}?\n\nEsta acción NO se puede deshacer y eliminará:\n- El usuario de la base de datos\n- TODAS las evaluaciones creadas por este usuario\n- Todos sus datos asociados\n\n¿Continuar?`)) {
+            return;
+        }
+
+        // Segunda confirmación de seguridad
+        if (!confirm(`⚠️ CONFIRMACIÓN FINAL\n\nEstás a punto de eliminar a ${userEmail} y TODAS sus evaluaciones.\n\nEsta acción es IRREVERSIBLE.\n\n¿Continuar?`)) {
+            return;
+        }
+
+        const confirmacion = prompt('Escribe "ELIMINAR" para confirmar (en mayúsculas):');
+        if (confirmacion !== 'ELIMINAR') {
+            alert('Operación cancelada. No se eliminó el usuario.');
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase.rpc('delete_user', {
+                user_id: userId
+            });
+
+            if (error) {
+                console.error('Error al eliminar usuario:', error);
+                
+                if (error.message.includes('does not exist')) {
+                    alert('⚠️ Es necesario crear la función RPC "delete_user" en Supabase. Revisa el archivo SETUP_ADMIN_USERS.md');
+                } else {
+                    alert(`Error al eliminar el usuario: ${error.message}`);
+                }
+                return;
+            }
+
+            showStatus(`✓ Usuario eliminado correctamente`, 'success');
+            cargarGestionUsuarios(); // Recargar la lista
+
+        } catch (error) {
+            console.error('Error al eliminar usuario:', error);
+            alert('Error al eliminar el usuario. Por favor, intenta de nuevo.');
+        }
+    };
+
+    // Actualizar la función isAdmin para consultar la base de datos
+    async function isAdminAsync(user) {
+        if (!user || !user.email) return false;
+        
+        // Super admin siempre es admin
+        if (user.email.toLowerCase() === 'estelagonzalez@fvbpa.com') return true;
+        
+        // Verificar en metadata
+        if (user.user_metadata && user.user_metadata.es_admin === true) return true;
+        
+        return false;
     }
 });

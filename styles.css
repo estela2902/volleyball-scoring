@@ -207,7 +207,7 @@ body {
 }
 
 .container {
-    max-width: 1400px;
+    max-width: 1600px;
     margin: 0 auto;
     background-color: white;
     padding: 30px;
@@ -1167,4 +1167,350 @@ h1 {
         flex-direction: column;
         gap: 20px;
     }
+}
+
+/* ========== TABS DE ADMINISTRACIÓN ========== */
+.admin-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.admin-tab {
+    background: transparent;
+    border: none;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #4a5568;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+    position: relative;
+    bottom: -2px;
+}
+
+.admin-tab:hover {
+    color: #2d3748;
+    background-color: #f7fafc;
+}
+
+.admin-tab.active {
+    color: #4385bd;
+    border-bottom-color: #4385bd;
+    background-color: #f7fafc;
+}
+
+.tab-content {
+    padding: 20px 0;
+}
+
+/* ========== TABLA DE INFORMES ========== */
+.informes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f7fafc;
+    border-radius: 8px;
+}
+
+.informes-header .info-text {
+    margin: 0;
+    color: #4a5568;
+    font-size: 14px;
+}
+
+.informes-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.informes-table thead {
+    background: #4385bd;
+    color: white;
+}
+
+.informes-table th {
+    padding: 8px 6px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Anchos específicos de columnas */
+.informes-table th:nth-child(1),
+.informes-table td:nth-child(1) {
+    width: 85px;
+    min-width: 85px;
+}
+
+.informes-table th:nth-child(2),
+.informes-table td:nth-child(2) {
+    width: 80px;
+    min-width: 80px;
+}
+
+.informes-table th:nth-child(3),
+.informes-table td:nth-child(3) {
+    width: 60px;
+    min-width: 60px;
+}
+
+.informes-table th:nth-child(6),
+.informes-table td:nth-child(6),
+.informes-table th:nth-child(7),
+.informes-table td:nth-child(7) {
+    width: 100px;
+    min-width: 100px;
+}
+
+.informes-table th:nth-child(8),
+.informes-table td:nth-child(8) {
+    width: 130px;
+    min-width: 130px;
+}
+
+.informes-table td {
+    padding: 8px 6px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 13px;
+    color: #2d3748;
+    white-space: nowrap;
+}
+
+.informes-table tbody tr:hover {
+    background-color: #f7fafc;
+}
+
+.informes-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Estado de evaluaciones */
+.eval-status {
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    font-size: 13px;
+}
+
+.eval-status.eval-completed {
+    background-color: #c6f6d5;
+    color: #22543d;
+}
+
+.eval-status.eval-pending {
+    background-color: #fef5e7;
+    color: #975a16;
+}
+
+/* Botón de PDF */
+.btn-pdf {
+    background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 2px 4px rgba(211, 47, 47, 0.2);
+}
+
+.btn-pdf:hover {
+    background: linear-gradient(135deg, #b71c1c 0%, #d32f2f 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(211, 47, 47, 0.3);
+}
+
+.btn-pdf:active {
+    transform: translateY(0);
+}
+
+.text-muted {
+    color: #a0aec0;
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* Campos de filtro de texto en informes */
+.filter-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+    background-color: #fff;
+    transition: border-color 0.2s;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: #4385bd;
+    box-shadow: 0 0 0 3px rgba(67, 133, 189, 0.1);
+}
+
+.filter-input::placeholder {
+    color: #a0aec0;
+}
+
+/* Responsive para tabla de informes */
+@media (max-width: 768px) {
+    .informes-table {
+        font-size: 12px;
+    }
+    
+    .informes-table th,
+    .informes-table td {
+        padding: 8px 6px;
+    }
+    
+    .informes-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+    
+    .admin-tab {
+        padding: 10px 16px;
+        font-size: 14px;
+        white-space: nowrap;
+    }
+}
+
+/* ========== GESTIÓN DE USUARIOS ========== */
+.usuarios-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f7fafc;
+    border-radius: 8px;
+}
+
+.usuarios-header .info-text {
+    margin: 0;
+    color: #4a5568;
+    font-size: 14px;
+}
+
+.usuarios-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.usuarios-table thead {
+    background: #4385bd;
+    color: white;
+}
+
+.usuarios-table th {
+    padding: 14px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.usuarios-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 14px;
+    color: #2d3748;
+}
+
+.usuarios-table tbody tr:hover {
+    background-color: #f7fafc;
+}
+
+.usuarios-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Badges de rol */
+.rol-badge {
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 4px;
+    display: inline-block;
+    font-size: 13px;
+}
+
+.rol-badge.rol-admin {
+    background-color: #fef5e7;
+    color: #975a16;
+    border: 1px solid #f39c12;
+}
+
+.rol-badge.rol-evaluador {
+    background-color: #e8f4f8;
+    color: #1565c0;
+    border: 1px solid #4385bd;
+}
+
+/* Botones de acción en tabla de usuarios */
+.btn-accion {
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-hacer-admin {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.btn-hacer-admin:hover {
+    background: #9ae6b4;
+    transform: translateY(-1px);
+}
+
+.btn-quitar-admin {
+    background: #fed7d7;
+    color: #c53030;
+}
+
+.btn-quitar-admin:hover {
+    background: #fc8181;
+    transform: translateY(-1px);
+}
+
+.btn-eliminar {
+    background: #2d3748;
+    color: white;
+}
+
+.btn-eliminar:hover {
+    background: #1a202c;
+    transform: translateY(-1px);
 }
